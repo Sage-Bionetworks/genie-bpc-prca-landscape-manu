@@ -1,0 +1,66 @@
+---
+title: "GENIE BPC Prostate Cancer - Landscape Report"
+author: "Alex Paynter"
+date: "4/4/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, include = F,
+                      warning = F, message = F)
+```
+
+```{r}
+library(readr)
+library(here)
+library(dplyr)
+library(purrr)
+library(rlang)
+library(magrittr)
+
+library(gt)
+library(gtsummary)
+
+as_list(here("R", dir(here("R"))))
+
+# Source everything in the "R" folder - just functions, no scripts.
+purrr::walk(.x = here("R", dir(here("R"))), .f = source)
+```
+
+
+```{r, warning = T}
+read_wrap <- function(p) {
+  read_csv(file = here("data-raw", p), show_col_types = F)
+}
+
+dft_pt <- read_wrap("patient_level_dataset.csv")
+
+# A few sanity checks on the data:
+if ((dft_pt$record_id %>% duplicated %>% any)) {
+  stop("Duplicated records in patient level dataset.")
+}
+
+if (any(dft_pt$naaccr_sex_code != "Male")) {
+  warning("Non-male sex detected for at least one participant (unexpectedly for Prostate cancer)")
+}
+
+```
+
+
+```{r, demo_data_manipulation, include = F}
+dft_pt_demo_sub <- dft_pt %>%
+  mutate(
+    `Race (primary)` = format_ptlevel_naaccr_race_code_primary(
+      naaccr_race_code_primary
+    ),
+    `Ethnicity` = format_ptlevel_naaccr_ethnicity_code(
+      naaccr_ethnicity_code
+    )) %>%
+  select(Institution = institution,
+         `Race (primary)`,
+         `Ethnicity`)
+
+
+
+```
+
