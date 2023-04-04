@@ -33,4 +33,3 @@ glimpse(dft_path)
 glimpse(dft_regimen)
 glimpse(dft_tm_level_dataset)
 
-dft_ca_ind %>% glimpse
