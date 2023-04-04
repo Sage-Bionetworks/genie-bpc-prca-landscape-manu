@@ -56,9 +56,24 @@ dft_pt_demo_sub <- dft_pt %>%
     `Ethnicity` = format_ptlevel_naaccr_ethnicity_code(
       naaccr_ethnicity_code
     )) %>%
-  select(Institution = institution,
+  select(record_id, 
+         Institution = institution,
          `Race (primary)`,
          `Ethnicity`)
+
+
+dft_ca_ind_demo_sub <- dft_ca_ind %>%
+  mutate(ca_dx_how = format_ca_dx_how(ca_dx_how)) %>%
+  select(record_id, 
+         `Source of Dx` = ca_dx_how)
+
+dft_demo <- full_join(dft_pt_demo_sub,
+          dft_ca_ind_demo_sub,
+          by = "record_id") 
+
+dft_demo %>%
+  select(-record_id) %>%
+  gtsummary::tbl_summary(data = .)
 
 
 
