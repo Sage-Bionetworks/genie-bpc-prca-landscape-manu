@@ -33,3 +33,57 @@ glimpse(dft_path)
 glimpse(dft_regimen)
 glimpse(dft_tm_level_dataset)
 
+dft_regimen
+
+
+# Exercise to get to know the regimens datasets:
+
+# linkage notes:
+# regimens can be linked with cancer dx data by 
+#   cohort, record_id and ca_seq
+
+library(tidyr)
+
+dft_ca_nonind %>% glimpse
+
+
+ca_comb <- dplyr::bind_rows(
+  (dft_ca_ind %>% 
+    select(record_id, ca_seq) %>%
+    mutate(index_ca = T)),
+  (dft_ca_nonind %>%
+     select(record_id, ca_seq) %>%
+     mutate(index_ca = F))
+)
+
+dft_reg_aug <- dft_regimen %>%
+  left_join(., ca_comb, by = c("record_id", "ca_seq"))
+
+# for now we just want a list of the drugs used:
+dft_reg_aug %<>% 
+  select(cohort, record_id, ca_seq, index_ca,
+         contains("drugs_drug")) %>%
+  pivot_longer(cols = -c(cohort, record_id, ca_seq, index_ca),
+               names_to = "drug_num",
+               values_to = "drug_name") %>%
+  mutate(
+    drug_num = stringr::str_replace(drug_num,
+                                    "drugs_drug_",
+                                    ""),
+    drug_num = readr::parse_number(drug_num)
+  ) 
+
+dft_reg_aug %>%
+  filter(!is.na(drug_name)) %>%
+  group_by(drug_name, cohort, index_ca) %>%
+  summarize(n = n())
+
+
+  
+
+names(dft_ca_nonind) %>% sort
+
+dft_regimen %>% 
+  select(cohort, record_id, ca_seq, contains("drugs_drug")) %>%
+  pivot_longer(cols = -c(cohort, record_id, ca_seq))
+
