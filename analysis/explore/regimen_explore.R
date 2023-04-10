@@ -197,5 +197,28 @@ dfp_top_drugs %>% View(.)
 
 # From Jen's email: mapping breast cancer sites.
 dft_ca_ind %>%
-  select
+  # variables needed for people who were stage IV at dx:
+  select(record_id, 
+         stage_dx_iv,
+         dob_ca_dx_days, # dob_ca_dx_days appears to match jen's desc of "ca_cadx_int"
+         ca_dmets_yn,
+         contains("ca_first_dmets"))
+  # Now something I don't get:  How can they be stage 4 at dx but not have dmets?
+  
+
+dft_ca_ind %>%
+  # variables needed for people who were stage IV at dx:
+  select(record_id, 
+         stage_dx_iv,
+         dob_ca_dx_days, # dob_ca_dx_days appears to match jen's desc of "ca_cadx_int"
+         dx_to_dmets_days,
+         matches("^dmets_"),
+         matches("^dx_to_dmets_")) %>%
+  glimpse
+
+str_filter <- function(vec, pattern, negate = F) {
+  str_ind <- str_which(vec, pattern, negate = negate)
+  vec[str_ind]
+}
+
 
