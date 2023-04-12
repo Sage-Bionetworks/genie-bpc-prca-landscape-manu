@@ -1,11 +1,10 @@
 # Description: Grabs the raw data from Synapse and stores it in the data-raw folder.
+#  We are not using the genieBPC function because it does not appear to support
+#  personal access tokens at the time of this writing.
 # Author: Alex Paynter
 
 # The Synapse folder containing the clinical data files.
 synid_clin_data <- "syn50612196"
-
-
-
 
 library(synapser)
 library(purrr)

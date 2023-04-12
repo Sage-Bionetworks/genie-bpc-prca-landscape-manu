@@ -12,6 +12,7 @@ library(tidyr)
 library(magrittr)
 library(janitor)
 library(glue)
+library(genieBPC)
 
 read_wrap <- function(p) {
   read_csv(file = here("data-raw", p), show_col_types = F)
@@ -205,7 +206,6 @@ dft_ca_ind %>%
          contains("ca_first_dmets"))
   # Now something I don't get:  How can they be stage 4 at dx but not have dmets?
   
-
 dft_ca_ind %>%
   # variables needed for people who were stage IV at dx:
   select(record_id, 
@@ -220,5 +220,7 @@ str_filter <- function(vec, pattern, negate = F) {
   str_ind <- str_which(vec, pattern, negate = negate)
   vec[str_ind]
 }
+
+
 
 
