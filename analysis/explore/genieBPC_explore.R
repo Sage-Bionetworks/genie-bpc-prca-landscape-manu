@@ -19,11 +19,6 @@ nsclc_stg_iv <- create_analytic_cohort(data_synapse = nsclc$NSCLC_v2.0,
 nsclc_stg_iv %>% lobstr::tree(., max_depth = 1)
 
 
-
-nsclc_stg_iv_adeno <- create_analytic_cohort(data_synapse = nsclc_2_0$NSCLC_v2.0, 
-                                             stage_dx = "Stage IV", 
-                                             histology = "Adenocarcinoma")
-
 # potentially helpful:
 sunplot <- drug_regimen_sunburst(data_synapse = nsclc$NSCLC_v2.0,
                                  data_cohort = nsclc_stg_iv,

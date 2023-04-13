@@ -13,6 +13,7 @@ library(magrittr)
 library(janitor)
 library(glue)
 library(genieBPC)
+library(ggplot2)
 
 read_wrap <- function(p) {
   read_csv(file = here("data-raw", p), show_col_types = F)
@@ -221,6 +222,132 @@ str_filter <- function(vec, pattern, negate = F) {
   vec[str_ind]
 }
 
+
+
+# Need functions to grab the timing of progression for participants 
+#  who had one.  To start I'll complete this for one example.
+
+test <- pull_data_synapse("BrCa", version = "v1.2-consortium")
+data_list <- test$BrCa_v1.2
+lobstr::tree(data_list, max_depth = 1)
+pt_char <- data_list[["pt_char"]]
+ca_dx_index <- data_list[["ca_dx_index"]]
+ca_dx_non_index <- data_list[["ca_dx_non_index"]]
+prissmm_md <- data_list[["prissmm_md"]]
+
+
+death_dates <- pt_char %>%
+  as_tibble(.) %>%
+  filter(!is.na(hybrid_death_int)) %>%
+  select(record_id, hybrid_death_int)
+
+temp <- ca_dx_index %>%
+  as_tibble(.) %>%
+  filter(pfs_i_or_m_adv_status %in% 1) %>%
+  select(record_id, ca_seq,
+         tt_pfs_i_or_m_adv_days,
+         tt_pfs_i_or_m_adv_mos,
+         tt_pfs_i_or_m_adv_yrs,
+         ca_cadx_int,
+         tt_os_dx_days) %>%
+  arrange(tt_pfs_i_or_m_adv_days) %>%
+  left_join(., death_dates,
+            by = "record_id")
+ 
+# A check to make sure I haven't lost it:  The interval from birth to
+#   death should be equal to to the interval from birth to dx plus the
+#   interval from dx to death:
+temp %>%
+  # pfs_i_or_m_adv_int = 
+  mutate(hybrid_death_int_reproduction = ca_cadx_int + tt_os_dx_days,
+         hdi_diff = hybrid_death_int - hybrid_death_int_reproduction) %>%
+  pull(hdi_diff)
+# Excellent.
+
+ggplot(aes(x = tt_pfs_i_or_m_adv_days)) +
+  stat_ecdf() +
+  coord_cartesian(xlim = c(-.5, 30))
+
+
+ca_dx_non_index %>% count(record_id) %>% arrange(desc(n)) %>% head
+
+# an example of someone with a non-index cancer after an index cancer: GENIE-MSK-P-0017796
+
+#' @details Pulls the progression times for participants who experienced
+#'    progression (but not death).  For exmaple, if you a user input
+#'    prefix = "pfs_i_or_m_adv" then the function returns progression times
+#'    for participants under that event.  The progression times are 
+#'    tt_pfs_i_or_m_adv_\*, where \* is days, mos or yrs.
+#'    
+#'    This function would never be appropriate
+#'    for survival.  It's intended purpose is 
+#' @param ca_dat A BPC index cancer dataset.
+#' @param prefix A character vector for the event/time variables of interest (example: prefix = "pfs_i_or_m_adv")
+get_progressed_timing <- function(ca_dat, prefix) {
+  
+  stat_var <- paste0(prefix, '_status')
+  tt_d <- paste0('tt_', prefix, '_days')
+  tt_m <- paste0('tt_', prefix, '_mos')
+  tt_y <- paste0('tt_', prefix, '_yrs')
+  
+  ca_dat %>%
+    as_tibble(.) %>%
+    filter(.data[[stat_var]] %in% 1) %>%
+    # A couple of quick variables to make the filter more readable:
+    mutate(
+      did_not_die = !(os_dx_status %in% 1),
+      pfs_time_lt_os_time = case_when(
+        is.na(.data[[tt_d]]) ~ T,
+        is.na(tt_os_dx_days) ~ T,
+        .data[[tt_d]] < tt_os_dx_days ~ T,
+        T ~ F
+      )
+    ) %>% 
+    filter(did_not_die | pfs_time_lt_os_time) %>%
+    select(
+      record_id, 
+      ca_seq,
+      all_of(c(tt_d, tt_m, tt_y))
+    )
+  
+}
+
+
+
+get_progressed_timing(ca_dat = ca_dx_index, 
+                      prefix = "pfs_i_or_m_adv") %>% glimpse
+
+# Should be smaller:
+get_progressed_timing(ca_dat = ca_dx_index, 
+                      prefix = "pfs_i_and_m_adv") %>% glimpse
+
+# Goldilocks options:
+get_progressed_timing(ca_dat = ca_dx_index, 
+                      prefix = "pfs_i_adv") %>% glimpse
+get_progressed_timing(ca_dat = ca_dx_index, 
+                      prefix = "pfs_m_adv") %>% glimpse
+
+# Do we still have this huge problem of lots of people being classified as progressed 1 day after they're diagnosed?
+get_progressed_timing(ca_dat = ca_dx_index, 
+                      prefix = "pfs_i_or_m_adv") %>%
+  pull(tt_pfs_i_or_m_adv_days) %>%
+  is_less_than(7) %>%
+  sum
+  ggplot(aes(x = tt_pfs_i_or_m_adv_days)) + 
+  stat_ecdf() + 
+  theme_bw() + 
+  coord_cartesian(xlim = c(0,30))
+# yeah.  How can 50% of the non-dead ever-progressed cohort be progressing after 30 days?  Makes no sense.
+
+
+# 841 rows, 7 cols, 000183 is the first pt.
+
+
+# Time variables:
+# hybrid_death_int - interval in days from date of birth to date of death.
+# dob_ca_dx_days - interval in days from date of birth to cancer dx.
+#   - Called [ca_cadx_int] in the brca cohort data.
+# tt_os_dx_days - interval from diagnosis to death in days.
 
 
 
