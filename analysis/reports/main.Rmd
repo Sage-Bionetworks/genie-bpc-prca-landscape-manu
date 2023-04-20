@@ -3,6 +3,8 @@ title: "GENIE BPC Prostate Cancer - Landscape Report"
 author: "Alex Paynter"
 date: "4/4/2023"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -17,6 +19,8 @@ library(dplyr)
 library(purrr)
 library(rlang)
 library(magrittr)
+library(janitor)
+library(stringr)
 
 library(gt)
 library(gtsummary)
@@ -36,6 +40,8 @@ read_wrap <- function(p) {
 dft_pt <- read_wrap("patient_level_dataset.csv")
 dft_ca_ind <- read_wrap("cancer_level_dataset_index.csv")
 
+dft_med_onc <- read_wrap("med_onc_note_level_dataset.csv")
+
 # A few sanity checks on the data:
 if ((dft_pt$record_id %>% duplicated %>% any)) {
   stop("Duplicated records in patient level dataset.")
@@ -49,7 +55,7 @@ if (any(dft_pt$naaccr_sex_code != "Male")) {
 
 
 ```{r, demo_data_manipulation, include = F}
-dft_pt_demo_sub <- dft_pt %>%
+dft_pt_baseline_sub <- dft_pt %>%
   mutate(
     `Race (primary)` = format_ptlevel_naaccr_race_code_primary(
       naaccr_race_code_primary
@@ -63,7 +69,7 @@ dft_pt_demo_sub <- dft_pt %>%
          `Ethnicity`)
 
 
-dft_ca_ind_demo_sub <- dft_ca_ind %>%
+dft_ca_ind_baseline_sub <- dft_ca_ind %>%
   mutate(
     ca_dx_how = format_ca_dx_how(ca_dx_how),
     ca_hist_adeno_squamous = format_ca_hist_adeno_squamous(ca_hist_adeno_squamous),
@@ -80,13 +86,13 @@ dft_ca_ind_demo_sub <- dft_ca_ind %>%
   ) 
 
 
-dft_demo <- full_join(dft_pt_demo_sub,
-          dft_ca_ind_demo_sub,
-          by = "record_id") 
+dft_demo <- full_join(dft_pt_baseline_sub,
+                      dft_ca_ind_baseline_sub,
+                      by = "record_id") 
 
 ```
 
-### Table R1.1a: Baseline characteristics
+### R1.1a: Baseline characteristics
 
 ```{r, tab_r1_1a, include = T}
 dft_demo %>%
@@ -94,13 +100,70 @@ dft_demo %>%
   gtsummary::tbl_summary(data = .)
 ```
 
-### Table R1.1b: Baseline characteristics by site
+### R1.1b: Baseline characteristics by site
 
 ```{r, tab_r1_1b, include = T}
 dft_demo %>%
   select(-record_id) %>%
   gtsummary::tbl_summary(data = ., by = Institution)
 ```
+
+
+
+
+
+
+
+
+
+```{r}
+dft_ca_ind %>%
+  select(record_id,
+         ca_pros_clin_gscore,
+         ca_pros_num_corespos, # positive
+         ca_pros_num_cores #examined
+  ) %>%
+  tabyl(ca_pros_clin_gscore)
+
+
+dft_ca_ind %>%
+  mutate(
+    ce_num = format_cores(ca_pros_num_cores),
+    cp_num = format_cores(ca_pros_num_corespos),
+    clin_gleason = format_gleason(ca_pros_clin_gscore)
+  ) %>%
+  select(record_id, ce_num, cp_num, clin_gleason)
+
+
+
+dft_med_onc %>%
+  group_by(record_id) %>%
+  arrange(md_visit_number) %>%
+  # filter down to the first determination made.
+  #  That is, we will ignore rows with "Not stated in the Impression/Plan", unless that is the only type of entry ever
+  #  Made for the patient.
+  filter(str_detect(md_pca_status, "(CRPC)|(HSPC)") | 1:n() == n()) %>%
+  slice(1) %>%
+  ungroup %>%
+  # First castration-resistance determination:
+  mutate(first_cast_det = if_else(str_detect(md_pca_status, "Not stated in"),
+                              "Never stated in Impression/Plan",
+                              md_pca_status),
+         first_cast_det = factor(first_cast_det)) %>%
+  select(record_id,
+         first_cast_det)
+
+
+
+```
+
+
+### R1.2: First observed characteristics (post-dx)
+
+For most analyses, especially survival, the timing of observations is critical.  Here we have separated baseline characteristics (Table R1.1) and characteristics which represent a first observation, which could be post-baseline.  After speaking with Jennifer Hoppe at AACR, my understanding is that for all prostate specific variables in the cancer diagnosis dataset, curators were instructed to curate from time of diagnosis through completion of surgeries in the first course of treatment.  Therefore, those variables are here unless we can confirm they were exclusively measured at baseline.
+
+
+
 
 
 
