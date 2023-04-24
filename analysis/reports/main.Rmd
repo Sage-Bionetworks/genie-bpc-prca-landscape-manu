@@ -16,6 +16,7 @@ knitr::opts_chunk$set(echo = F, include = F,
 library(readr)
 library(here)
 library(dplyr)
+library(tidyr)
 library(purrr)
 library(rlang)
 library(magrittr)
@@ -39,8 +40,8 @@ read_wrap <- function(p) {
 
 dft_pt <- read_wrap("patient_level_dataset.csv")
 dft_ca_ind <- read_wrap("cancer_level_dataset_index.csv")
-
 dft_med_onc <- read_wrap("med_onc_note_level_dataset.csv")
+dft_tm <- read_wrap("tm_level_dataset.csv")
 
 # A few sanity checks on the data:
 if ((dft_pt$record_id %>% duplicated %>% any)) {
@@ -94,6 +95,9 @@ dft_demo <- full_join(dft_pt_baseline_sub,
 
 ### R1.1a: Baseline characteristics
 
+For most analyses, especially survival, the timing of observations is critical.  Here we have separated baseline characteristics (Table R1.1) and characteristics which could represent a first post-baseline observation (Table R1.2).  After speaking with Jennifer Hoppe at AACR, my understanding is that for all prostate specific variables in the cancer diagnosis dataset, curators were instructed to curate from time of diagnosis through completion of surgeries in the first course of treatment.  Therefore, those variables are in Table R1.2 unless we can confirm they were exclusively measured at baseline.
+
+
 ```{r, tab_r1_1a, include = T}
 dft_demo %>%
   select(-record_id) %>%
@@ -117,16 +121,9 @@ dft_demo %>%
 
 
 ```{r}
-dft_ca_ind %>%
-  select(record_id,
-         ca_pros_clin_gscore,
-         ca_pros_num_corespos, # positive
-         ca_pros_num_cores #examined
-  ) %>%
-  tabyl(ca_pros_clin_gscore)
 
 
-dft_ca_ind %>%
+dft_ca_ind_post_baseline <- dft_ca_ind %>%
   mutate(
     ce_num = format_cores(ca_pros_num_cores),
     cp_num = format_cores(ca_pros_num_corespos),
@@ -136,7 +133,7 @@ dft_ca_ind %>%
 
 
 
-dft_med_onc %>%
+dft_med_onc_post_baseline <- dft_med_onc %>%
   group_by(record_id) %>%
   arrange(md_visit_number) %>%
   # filter down to the first determination made.
@@ -153,14 +150,165 @@ dft_med_onc %>%
   select(record_id,
          first_cast_det)
 
+# Dominant units for PSA are ng/mL
+# Dominant units for Testosterone are ng/dL
+
+tm_missing_units <- dft_tm %>%
+  filter(tm_type %in% c("PSA", "Testosterone")) %>%
+  group_by(tm_type) %>%
+  filter(is.na(tm_result_units) & !is.na(tm_num_result)) %>%
+  summarize(n = n())
+
+# # Visual check on the unit conversions if desired.  Just looking for
+# good overall overlap between converted and non-converted units.
+# dft_tm %>%
+#   psa_test_unit_convert() %>%
+#   mutate(converted_unit = tm_result_units != tm_result_units_conv) %>%
+#   ggplot(., aes(x = 1, y = tm_num_result_conv, color = converted_unit)) + 
+#   geom_jitter(width = 1, height = 0) + 
+#   scale_y_log10() + 
+#   facet_wrap(vars(tm_type))
+
+dft_tm_post_baseline <- dft_tm %>%
+   psa_test_unit_convert() %>%
+  # filter down to results at or on diagnosis.
+  # Importantly there are psa/test values available before diagnosis for
+  #   many participants.
+  filter(dx_tm_days >= 0) %>% 
+  group_by(record_id, tm_type) %>%
+  arrange(dx_tm_days) %>%
+  slice(1) %>%
+  ungroup() %>% 
+  select(record_id, tm_type, tm_num_result_conv, tm_result_units_conv) 
+
+# kind of a hacky check:  the resulting tibble will be 2 rows and 3 columns if there are 2 analytes with one unit each.
+tm_unit_conv_check <- dft_tm_post_baseline %>% 
+  tabyl(tm_type, tm_result_units_conv) %>% 
+  dim
+if (!all.equal(tm_unit_conv_check,c(2,3))) {
+  cli::abort("Unit conversion problem.")
+}
+
+dft_tm_post_baseline %<>% 
+  select(-tm_result_units_conv) %>%
+  tidyr::pivot_wider(
+    names_from = "tm_type",
+    values_from = "tm_num_result_conv"
+  ) %>%
+  rename(
+    `PSA (ng/mL)` = PSA,
+    `Testosterone (ng/dL)` = Testosterone
+  )
+
+# dft_ca_ind_post_baseline %>% count(record_id) %>% arrange(desc(n))
+# dft_med_onc_post_baseline %>% count(record_id) %>% arrange(desc(n))
+# dft_ca_ind_post_baseline %>% count(record_id) %>% arrange(desc(n))
+
+
+dft_post_baseline <- full_join(
+  dft_ca_ind_post_baseline,
+  dft_med_onc_post_baseline,
+  by = "record_id"
+) %>%
+  full_join(
+    .,
+    dft_tm_post_baseline,
+    by = "record_id"
+  )
+
+dft_post_baseline %<>%
+  left_join(
+    ., 
+    select(dft_pt, record_id, institution),
+    by = "record_id"
+  )
+
+dfp_post_baseline <- dft_post_baseline %>%
+  select(
+    record_id,
+    Institution = institution,
+    `Prostate cores examined` = ce_num,
+    `Prostate cores positive` = cp_num,
+    `Clinical Gleason score` = clin_gleason,
+    `Castration sensitivity (first)` = first_cast_det,
+    `PSA (ng/mL)`, 
+    `Testosterone (ng/dL)`
+  )
+  
+  
+
 
 
 ```
 
 
-### R1.2: First observed characteristics (post-dx)
+### R1.2a: First observed characteristics (post-dx)
 
-For most analyses, especially survival, the timing of observations is critical.  Here we have separated baseline characteristics (Table R1.1) and characteristics which represent a first observation, which could be post-baseline.  After speaking with Jennifer Hoppe at AACR, my understanding is that for all prostate specific variables in the cancer diagnosis dataset, curators were instructed to curate from time of diagnosis through completion of surgeries in the first course of treatment.  Therefore, those variables are here unless we can confirm they were exclusively measured at baseline.
+Testosterone and PSA were recorded under a number of units.  We assumed the following conversion factors:
+
+**PSA** 
+
+- 1 ng/dL is equal to 0.01 ng/mL.
+- 1 μg/dL is equal to 1 ng/mL.
+- PSA levels in nmol/L (2 results) were discarded as it seemed exceptionally rare to state PSA this way (but common for testosterone, so an easy mistake to make).
+- Any PSA results with missing units were discarded (n = `r pull(filter(tm_missing_units, tm_type %in% "PSA"), n)`)
+
+**Testosterone** 
+
+- 1 ng/mL is equal to 100 ng/dL.
+- 1 nmol/L is equal to 28.81 ng/dL.
+- 1 pg/mL is equal to 0.1 ng/dL.
+- 1 μg/dL is equal to 100 ng/dL.
+
+For each characteristic here, the first determinate observation after diagnosis is stated if more than one observation exists in the data.  
+
+```{r, tab_r1_2a, include = T}
+dfp_post_baseline %>%
+  select(-c(record_id, Institution)) %>%
+  gtsummary::tbl_summary(data = .)
+```
+
+### R1.2b: Post-baseline characteristics by site
+
+```{r, tab_r1_2b, include = T}
+dfp_post_baseline %>%
+  select(-record_id) %>%
+  gtsummary::tbl_summary(data = ., by = Institution)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Problems/Concerns
+
+### Missing marker units on some results
+
+```{r, echo = T, include = T}
+dft_tm %>%
+  filter(tm_type %in% c("PSA", "Testosterone")) %>%
+  filter(is.na(tm_result_units)) %>%
+  mutate(num_result_exists = !is.na(tm_num_result)) %>%
+  summarize(
+    n_num_result_exists = sum(num_result_exists),
+    prop_num_result_exists = mean(num_result_exists)
+  )
+
+```
 
 
 
