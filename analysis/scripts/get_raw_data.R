@@ -6,6 +6,7 @@
 # The Synapse folder containing the clinical data files.
 synid_clin_data <- "syn50612196"
 
+library(cli)
 library(synapser)
 library(purrr)
 library(dplyr)

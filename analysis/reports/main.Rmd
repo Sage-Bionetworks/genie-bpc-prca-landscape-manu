@@ -9,7 +9,9 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = F, include = F,
-                      warning = F, message = F)
+                      warning = F, message = F,
+                      fig.width = 7, fig.height = 5)
+k_dpi <- 150
 ```
 
 ```{r}
@@ -22,6 +24,8 @@ library(rlang)
 library(magrittr)
 library(janitor)
 library(stringr)
+
+library(ggplot2)
 
 library(gt)
 library(gtsummary)
@@ -42,6 +46,7 @@ dft_pt <- read_wrap("patient_level_dataset.csv")
 dft_ca_ind <- read_wrap("cancer_level_dataset_index.csv")
 dft_med_onc <- read_wrap("med_onc_note_level_dataset.csv")
 dft_tm <- read_wrap("tm_level_dataset.csv")
+dft_cpt <- read_wrap("cancer_panel_test_level_dataset.csv")
 
 # A few sanity checks on the data:
 if ((dft_pt$record_id %>% duplicated %>% any)) {
@@ -282,6 +287,93 @@ dfp_post_baseline %>%
 
 
 
+```{r}
+set.seed(189)
+random_pt_subset <- dft_pt$record_id %>% 
+  unique %>% 
+  sample(x = ., size = 40, replace = F)
+
+dft_cast_block <- make_cast_status_block(
+  dft_med_onc, 
+  dft_ca_ind, 
+  remove_hspc_after_crpc = T)
+
+dft_event <- make_event_df(
+  ca_ind_dat = dft_ca_ind,
+  cast_block_dat = dft_cast_block
+)
+
+gg_swim_cast_dx <- plot_swim_cast_status(
+  #line_pal = c("gray80", "#ddaa33", "#bb5566"),
+  dft_cast_block,
+  dft_event,
+  pt_subset = random_pt_subset
+)
+
+ggsave(filename = here("fig", "R1.5a_swim_cast_dx.png"),
+       plot = gg_swim_cast_dx,
+       width = 7, height = 5, dpi = k_dpi)
+```
+
+### R1.5a: Swimmer plot, CRPC/HSPC, from dx
+
+**General note for swimmer plots** For the moment we're using a random subset of participants.  When we decide on a final set of plots for the manuscript, it may make sense to choose a representative cohort based on what we're showing. 
+
+```{r, include = T}
+gg_swim_cast_dx
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+dft_cast_block_by_age <- left_join(
+  dft_cast_block,
+  (dft_ca_ind %>% select(record_id, age_dx)),
+  by = "record_id"
+) %>%
+  mutate(
+    across(
+      .cols = c(dx_block_start, dx_block_end, tt_os_dx_yrs),
+      .fn = (function(x) x + age_dx)
+    )
+  ) 
+
+dft_event_by_age <- left_join(
+  dft_event,
+  (dft_ca_ind %>% select(record_id, age_dx)),
+  by = "record_id"
+) %>%
+  mutate(t_yrs = t_yrs + age_dx)
+
+gg_swim_cast_age <- plot_swim_cast_status(
+  dft_cast_block_by_age,
+  dft_event_by_age,
+  pt_subset = random_pt_subset
+)
+
+gg_swim_cast_age <- gg_swim_cast_age + 
+  scale_x_continuous(name = "Age (years)")
+
+ggsave(filename = here("fig", "R1.5b_swim_cast_age.png"),
+       plot = gg_swim_cast_age,
+       width = 7, height = 5, dpi = k_dpi)
+
+```
+
+### R1.5b: Swimmer plot, CRPC/HSPC, by Age
+
+```{r, include = T}
+gg_swim_cast_age 
+```
 
 
 
@@ -299,14 +391,37 @@ dfp_post_baseline %>%
 ### Missing marker units on some results
 
 ```{r, echo = T, include = T}
-dft_tm %>%
+dft_tm_miss_units <- dft_tm %>%
   filter(tm_type %in% c("PSA", "Testosterone")) %>%
-  filter(is.na(tm_result_units)) %>%
+  filter(is.na(tm_result_units))
+dft_tm_miss_units %>%
   mutate(num_result_exists = !is.na(tm_num_result)) %>%
   summarize(
     n_num_result_exists = sum(num_result_exists),
     prop_num_result_exists = mean(num_result_exists)
   )
+```
+
+
+```{r, echo = F, include = F}
+
+# This block can be deleted later on.  Output to resolve a potential error in data.
+
+# dft_tm_miss_units %>%
+#   arrange(record_id) %>%
+#   readr::write_csv(
+#     x = ., 
+#     file = here("data", "tumor_marker_missing_units.csv"),
+#     na = ""
+#   )
+# 
+# library(synapser)
+# 
+# synLogin()
+# synapser::File(here("data", "tumor_marker_missing_units.csv"),
+#                parent = "syn51393619") %>%
+#   synStore()
+
 
 ```
 
