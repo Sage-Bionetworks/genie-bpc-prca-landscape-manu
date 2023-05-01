@@ -1,7 +1,7 @@
 ---
 title: "GENIE BPC Prostate Cancer - Landscape Report"
 author: "Alex Paynter"
-date: "4/4/2023"
+date: "Work started April 4, 2023"
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -13,6 +13,15 @@ knitr::opts_chunk$set(echo = F, include = F,
                       fig.width = 7, fig.height = 5)
 k_dpi <- 150
 ```
+
+<style type="text/css">
+.main-container {
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
 
 ```{r}
 library(readr)
@@ -110,6 +119,11 @@ dft_demo %>%
 ```
 
 ### R1.1b: Baseline characteristics by site
+
+Observations:
+
+- MSK, UHN and VICC have more late stage cancers (about 50%).  DFCI has more Stage II/III cancers.
+- Several variables are 100% unknown at UHN:  Histology and Ethnicity.
 
 ```{r, tab_r1_1b, include = T}
 dft_demo %>%
@@ -265,7 +279,8 @@ Testosterone and PSA were recorded under a number of units.  We assumed the foll
 - 1 pg/mL is equal to 0.1 ng/dL.
 - 1 μg/dL is equal to 100 ng/dL.
 
-For each characteristic here, the first determinate observation after diagnosis is stated if more than one observation exists in the data.  
+For each characteristic here, the first determinate observation after diagnosis is stated if more than one observation exists in the data.
+
 
 ```{r, tab_r1_2a, include = T}
 dfp_post_baseline %>%
@@ -274,6 +289,11 @@ dfp_post_baseline %>%
 ```
 
 ### R1.2b: Post-baseline characteristics by site
+
+Observations on the table:
+
+- DFCI has more participants with low first observed Gleason scores.  This is consistent with the early stage observation from the previous table.
+- MSK has more participants with HSPC on the first observation, which seems inconsistent with higher average stage.  This may indicate a scoring difference on HSPC/CRPC between institutions.
 
 ```{r, tab_r1_2b, include = T}
 dfp_post_baseline %>%
@@ -303,10 +323,12 @@ dft_event <- make_event_df(
   cast_block_dat = dft_cast_block
 )
 
-gg_swim_cast_dx <- plot_swim_cast_status(
+gg_swim_cast_dx <- plot_swim_block_status(
   #line_pal = c("gray80", "#ddaa33", "#bb5566"),
-  dft_cast_block,
-  dft_event,
+  block_dat = dft_cast_block,
+  block_var = "md_cast_status_f",
+  event_dat = dft_event,
+  event_var = "event",
   pt_subset = random_pt_subset
 )
 
@@ -317,7 +339,9 @@ ggsave(filename = here("fig", "R1.5a_swim_cast_dx.png"),
 
 ### R1.5a: Swimmer plot, CRPC/HSPC, from dx
 
-**General note for swimmer plots** For the moment we're using a random subset of participants.  When we decide on a final set of plots for the manuscript, it may make sense to choose a representative cohort based on what we're showing. 
+**General note for swimmer plots** For the moment we're using a random subset of participants.  When we decide on a final set of plots for the manuscript, it may make sense to choose a representative cohort based on what we're showing.
+
+We have removed indications of hormone-sensitive prostate cancer in the data which occur after designations of castrate-resistant prostate cancer.  This is based on personal communications with our clinical collaborators, who shared that once someone is considered castrate-sensitive they retain that status for life.
 
 ```{r, include = T}
 gg_swim_cast_dx
@@ -334,7 +358,6 @@ gg_swim_cast_dx
 
 
 ```{r}
-
 dft_cast_block_by_age <- left_join(
   dft_cast_block,
   (dft_ca_ind %>% select(record_id, age_dx)),
@@ -354,9 +377,11 @@ dft_event_by_age <- left_join(
 ) %>%
   mutate(t_yrs = t_yrs + age_dx)
 
-gg_swim_cast_age <- plot_swim_cast_status(
-  dft_cast_block_by_age,
-  dft_event_by_age,
+gg_swim_cast_age <- plot_swim_block_status(
+  block_dat = dft_cast_block_by_age,
+  block_var = "md_cast_status_f",
+  event_dat = dft_event_by_age,
+  event_var = "event",
   pt_subset = random_pt_subset
 )
 
@@ -383,12 +408,50 @@ gg_swim_cast_age
 
 
 
+```{r}
+dft_dmet_block <- make_dmet_status_block(ca_ind_dat = dft_ca_ind)
+
+gg_swim_dmet_dx <- plot_swim_block_status(
+  #line_pal = c("gray80", "#ddaa33", "#bb5566"),
+  block_dat = dft_dmet_block,
+  block_var = "dmet_status",
+  event_dat = dft_event,
+  event_var = "event",
+  pt_subset = random_pt_subset,
+  line_pal = c("#6699cc", "#ee99aa")
+)
+
+ggsave(filename = here("fig", "R1.5c_swim_dmet_dx.png"),
+       plot = gg_swim_dmet_dx,
+       width = 7, height = 5, dpi = k_dpi)
+```
+
+### R1.5c: Swimmer plot, Distant metastasis status, from dx
+
+```{r, print_swim_dmet_dx, include = T}
+gg_swim_dmet_dx
+```
+
+
+
+
+
+
 
 
 
 ## Problems/Concerns
 
+### Questions on data display
+
+- Would it be better to state cores using a within-subject measurement like proportion of core positive (median, IQR).
+- Should we categorize medications?
+- Should swimmer plots be indexed by age, dx date or year?
+
+
 ### Missing marker units on some results
+
+This was shared with Jennifer Hoppe and Mike Fiandalo at AACR in April 2023:
 
 ```{r, echo = T, include = T}
 dft_tm_miss_units <- dft_tm %>%
@@ -401,6 +464,8 @@ dft_tm_miss_units %>%
     prop_num_result_exists = mean(num_result_exists)
   )
 ```
+
+
 
 
 ```{r, echo = F, include = F}
