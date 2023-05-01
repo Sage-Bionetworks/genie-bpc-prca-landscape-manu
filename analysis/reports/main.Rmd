@@ -2,7 +2,11 @@
 title: "GENIE BPC Prostate Cancer - Landscape Report"
 author: "Alex Paynter"
 date: "Work started April 4, 2023"
-output: html_document
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: paper
 editor_options: 
   chunk_output_type: console
 ---
@@ -16,7 +20,7 @@ k_dpi <- 150
 
 <style type="text/css">
 .main-container {
-  max-width: 800px;
+  max-width: 400px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -53,6 +57,7 @@ read_wrap <- function(p) {
 
 dft_pt <- read_wrap("patient_level_dataset.csv")
 dft_ca_ind <- read_wrap("cancer_level_dataset_index.csv")
+dft_img <- read_wrap("imaging_level_dataset.csv")
 dft_med_onc <- read_wrap("med_onc_note_level_dataset.csv")
 dft_tm <- read_wrap("tm_level_dataset.csv")
 dft_cpt <- read_wrap("cancer_panel_test_level_dataset.csv")
@@ -106,6 +111,8 @@ dft_demo <- full_join(dft_pt_baseline_sub,
                       by = "record_id") 
 
 ```
+
+## Content
 
 ### R1.1a: Baseline characteristics
 
@@ -261,7 +268,7 @@ dfp_post_baseline <- dft_post_baseline %>%
 ```
 
 
-### R1.2a: First observed characteristics (post-dx)
+### R1.2a: Post-baseline characteristics 
 
 Testosterone and PSA were recorded under a number of units.  We assumed the following conversion factors:
 
@@ -300,6 +307,58 @@ dfp_post_baseline %>%
   select(-record_id) %>%
   gtsummary::tbl_summary(data = ., by = Institution)
 ```
+
+
+
+
+
+
+
+```{r}
+# Just checking an assumption I have about the data:
+if (nrow(
+  (dft_med_onc %>% filter(!(record_id %in% dft_ca_ind$record_id)))
+) != 0) {
+  cli::cli_abort("Med onc data contains partipants not in the index cancer dataset.")
+}
+
+dft_counts_mo <- dft_med_onc %>%
+  count(record_id) %>%
+  rename(n_med_onc = n)
+
+img_type_levs <- c("n_scan_ct",
+                   "n_scan_mri",
+                   "n_scan_pet_or_pet_ct",
+                   "n_scan_pet_mri",
+                   "n_scan_bone",
+                   "n_scan_other")
+
+dft_img %>%
+  count(image_scan_type) %>%
+  mutate(
+    image_scan_type = case_when(
+            image_scan_type %in% `CT` ~ 
+      image_scan_type %in% `Bone Scan` ~ "n_scan_bone",
+      image_scan_type %in% `CT` ~ 
+      image_scan_type %in% `MRI` ~ "n_scan_mri",
+      image_scan_type %in% `
+    )
+  )
+  
+  pivot_wider(names_from = image_scan_type,
+              values_from = n) %>%
+  glimpse
+
+  
+```
+
+
+### R1.3 Counts of
+
+
+
+
+
 
 
 
