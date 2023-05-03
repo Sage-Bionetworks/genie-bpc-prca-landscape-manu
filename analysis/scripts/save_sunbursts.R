@@ -49,14 +49,16 @@ crpc_times <- make_cast_status_block(
   read_wrap("med_onc_note_level_dataset.csv"),
   read_wrap("cancer_level_dataset_index.csv"),
   remove_hspc_after_crpc = T) 
-
 crpc_times %<>%
   filter(md_cast_status_f %in% "Castrate-Resistant") %>% 
   select(record_id, tt_y = dx_block_start) %>%
-  mutate(tt_d = tt_y/365.25)
+  mutate(tt_d = tt_y*365.25)
 
 
-dl_crpc <- filter_dl_by_pt(data_list, prog_timing = crpc_times)
+dl_crpc <- filter_dl_by_pt(
+  data_list, 
+  prog_timing = crpc_times
+)
 
 
 # Repeat the sunburst code:
@@ -67,13 +69,13 @@ dft_trt_hist_crpc <- drug_regimen_sunburst(
 dft_trt_hist_crpc <- dft_trt_hist_crpc$treatment_history
 
 set.seed(8988)
-pal_sun_full <- make_sun_pal(nrow(dft_trt_hist_crpc))
+pal_sun_crpc <- make_sun_pal(nrow(dft_trt_hist_crpc))
 
 js_sun_crpc <- sunburstR::sunburst(
   dft_trt_hist_crpc,
   legend = F,
   count = T,
-  colors = pal_sun_full
+  colors = pal_sun_crpc
 )
 
 saveRDS(file = here("data", "sunburst_plots", "crpc.rds"),

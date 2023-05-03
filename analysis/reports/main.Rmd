@@ -39,6 +39,8 @@ library(rlang)
 library(magrittr)
 library(janitor)
 library(stringr)
+library(vctrs)
+library(glue)
 
 library(ggplot2)
 library(ggrepel)
@@ -46,6 +48,8 @@ library(ggrepel)
 library(gt)
 library(gtsummary)
 library(sunburstR)
+library(huxtable)
+
 
 as_list(here("R", dir(here("R"))))
 
@@ -483,8 +487,188 @@ js_crpc_sun <- readRDS(
 
 Same plot as previous, limited to regimens started on or after participants were declared Castrate-resistant by medical oncologist note.
 
+**Observation:** Shockingly similar.
+
 ```{r, include = T}
 js_crpc_sun
+```
+
+
+
+
+
+```{r}
+dft_drug <- dft_ca_ind %>%
+  select(record_id, ca_seq) %>%
+  left_join(
+    ., 
+    dft_regimens,
+    by = c("record_id", "ca_seq")
+  ) %>% 
+  select(record_id:redcap_ca_index,
+         drugs_drug_1:dx_drug_end_or_lastadm_int_5) %>%
+  mutate(across(
+    c(contains("drugs_drug_")),
+    .fn = ~ vec_cast(.x, to = "character"))
+  ) %>%
+  mutate(
+    across(
+      .cols = drugs_startdt_int_1:dx_drug_end_or_lastadm_int_5,
+      .fns = as_double
+    )
+  )
+
+
+
+# split off the character values, we'll do those separately
+#   to avoid casting issues.
+dft_drug_char <- dft_drug %>%
+  select(record_id, 
+         regimen_number, 
+         ca_seq,
+         drugs_drug_1: drugs_drug_5)
+
+dft_drug %<>%
+  select(-contains("drugs_drug_")) %>%
+  pivot_longer(
+    cols = drugs_startdt_int_1:dx_drug_end_or_lastadm_int_5,
+    names_to = "var",
+    values_to = "value"
+  ) %>%
+  # Because "drug_num" is confusing when we have "drugs_num" in 
+  #   the raw data.
+  # This is only an id for drug within regimen within person.
+  mutate(drug_id = readr::parse_number(var),
+         var = stringr::str_replace(var, "_[0-5]", "")) %>%
+  pivot_wider(names_from = "var", values_from = "value") %>%
+  select(record_id, 
+         contains("regimen_number"), 
+         drug_id, 
+         everything()) 
+
+
+# Now do it again for the cluster of character columns.
+#   All the previous ones were integer/double.
+dft_drug_char %<>%
+  pivot_longer(
+    cols = drugs_drug_1: drugs_drug_5,
+    names_to = "var",
+    values_to = "value"
+  ) %>%
+  # Because "drug_num" is confusing when we have "drugs_num" in 
+  #   the raw data.
+  # This is only an id for drug within regimen within person.
+  mutate(drug_id = readr::parse_number(var),
+         var = stringr::str_replace(var, "_[0-5]", "")) %>%
+  # because there is only one column we don't need to pivot here,
+  #  just rename.
+  select(record_id, regimen_number, drug_id, drug = value)
+
+dft_drug <-
+  left_join(dft_drug, dft_drug_char, 
+            by = c("record_id", "regimen_number", "drug_id")) %>%
+  relocate(drug, .before = drugs_startdt_int)
+
+# empty rows here have no meaning - it's just regimens with less
+#   than 5 drugs which is not suprising or interesting.
+dft_drug %<>%
+  filter(!is.na(drug))
+
+
+dfp_top_drugs <- dft_drug %>%
+  group_by(record_id, drug) %>%
+  summarize(observed = 1, .groups = "drop") %>%
+  group_by(drug) %>%
+  summarize(n = sum(observed)) %>%
+  arrange(desc(n)) %>%
+  head(10)
+
+dc_wrap <- function(drug_name) {
+  get_drug_compliments(dft_drug, drug_name) %>%
+    reshape_drug_compliments()
+}
+
+dfp_top_drugs <- dfp_top_drugs %>%
+  mutate(df_top_comp = purrr::pmap(
+    .l = list(drug_name = drug),
+    .f = dc_wrap
+  )) %>%
+  tidyr::unnest(df_top_comp) %>%
+  mutate(drug = str_replace(drug, "\\(.*\\)", ""))
+```
+
+
+### R1.4c Drugs used, table
+
+The number of participants (n) who used a particular drug in any regimen.  `Compliment 1` states the drug mostly commonly used in regimens containing `Drug`.  
+
+*Example interpretation of a row*  Bicalutamide was used by 627 participants over the course of followup.  Regimens containing bicalutamide also frequently contained Docetaxel (4.1% of regimens with bicalutamide had docetaxel) and Degarelix.
+
+```{r, print_drug_table, include = T}
+dfp_top_drugs %>% 
+  select(Drug = drug, 
+         n = n, 
+         `Compliment 1` = first, 
+         `Compliment 2` = second) %>%
+  huxtable::hux(.) %>%
+  huxtable::theme_striped(.)
+```
+
+
+
+
+
+
+
+
+
+```{r, create_top_drug_plot}
+n_prca_cohort <- dft_ca_ind %>% nrow()
+
+set.seed(3890)
+gg_top_drugs <- dfp_top_drugs %>%
+  select(drug, n) %>%
+  mutate(
+    prop = n/n_prca_cohort,
+    str = glue("n={n} ({formatC(prop*100, digits = 1, format = 'f')}%)")
+  ) %>%
+  mutate(drug = forcats::fct_inorder(drug)) %>%
+  ggplot(data = .,
+         aes(x = prop, y = drug, fill = drug)) +
+  geom_col() + 
+  annotate(
+    geom = 'rect', 
+    xmin = 1, xmax = 1.5, ymin = -2, ymax = 15,
+    color = "gray80", fill = "gray80"
+  ) + 
+  geom_text(size = 2.5, 
+            nudge_x = .05, 
+            hjust = 0, 
+            aes(label = str)) + 
+  scale_fill_manual(
+    values = sample(make_sun_pal(10))
+  ) + 
+  scale_x_continuous(
+    name = "Proportion of cohort",
+    breaks = c(0,0.5,1),
+    labels = paste(c(0, 50, 100), "%"),
+    expand = expansion(mult = c(0,0.05), add = c(0,0))
+  ) + 
+  scale_y_discrete(limits = rev) + 
+  coord_cartesian(xlim = c(0,1.1), ylim = c(0.9, 10.1)) + 
+  theme_bw() +
+  theme(
+    axis.title.y = element_blank(),
+    legend.position = "none"
+  )
+```
+
+### R1.4d Drugs used, figure
+
+Proportion of the cohort ever exposed to each agent, limited to the top 10 most used.
+
+```{r, output_top_drug_plot, include = T, fig.height = 3, fig.width = 7}
+gg_top_drugs
 ```
 
 
