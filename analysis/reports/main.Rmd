@@ -28,6 +28,7 @@ k_dpi <- 150
 
 
 ```{r}
+library(cli)
 library(readr)
 library(here)
 library(dplyr)
@@ -39,6 +40,7 @@ library(janitor)
 library(stringr)
 
 library(ggplot2)
+library(ggrepel)
 
 library(gt)
 library(gtsummary)
@@ -59,6 +61,7 @@ dft_pt <- read_wrap("patient_level_dataset.csv")
 dft_ca_ind <- read_wrap("cancer_level_dataset_index.csv")
 dft_img <- read_wrap("imaging_level_dataset.csv")
 dft_med_onc <- read_wrap("med_onc_note_level_dataset.csv")
+dft_regimens <- read_wrap("regimen_cancer_level_dataset.csv")
 dft_tm <- read_wrap("tm_level_dataset.csv")
 dft_cpt <- read_wrap("cancer_panel_test_level_dataset.csv")
 
@@ -322,7 +325,7 @@ if (nrow(
   cli::cli_abort("Med onc data contains partipants not in the index cancer dataset.")
 }
 
-dft_counts_mo <- dft_med_onc %>%
+dft_count_med_onc <- dft_med_onc %>%
   count(record_id) %>%
   rename(n_med_onc = n)
 
@@ -333,29 +336,127 @@ img_type_levs <- c("n_scan_ct",
                    "n_scan_bone",
                    "n_scan_other")
 
-dft_img %>%
-  count(image_scan_type) %>%
+dft_count_img <- dft_img %>%
+  count(record_id, image_scan_type) %>%
   mutate(
     image_scan_type = case_when(
-            image_scan_type %in% `CT` ~ 
-      image_scan_type %in% `Bone Scan` ~ "n_scan_bone",
-      image_scan_type %in% `CT` ~ 
-      image_scan_type %in% `MRI` ~ "n_scan_mri",
-      image_scan_type %in% `
+      image_scan_type %in% "CT" ~ img_type_levs[1],
+      image_scan_type %in% "MRI" ~ img_type_levs[2],
+      image_scan_type %in% "PET or PET-CT" ~ img_type_levs[3],
+      image_scan_type %in% "PET MRI" ~ img_type_levs[4],
+      image_scan_type %in% "Bone Scan" ~ img_type_levs[5],
+      image_scan_type %in% "Other Nuclear Medicine Scan" ~ img_type_levs[6],
+      T ~ "error in image types"
+    )
+  ) %>%
+  pivot_wider(names_from = image_scan_type,
+              values_from = n) 
+dft_count_img %<>%
+  mutate(
+    n_scan_total = (dft_counts_img %>% 
+                      select(starts_with("n_scan")) %>% 
+                      rowSums(na.rm = T))
+  )
+
+dft_count_reg <- dft_regimens %>% 
+  inner_join(
+    select(dft_ca_ind, record_id, ca_seq),
+    .,
+    by = c("record_id", "ca_seq")
+  ) %>%
+  count(record_id) %>%
+  rename(n_regimens = n)
+
+dft_count_all <- full_join(
+  dft_count_reg,
+  dft_count_img,
+  by = "record_id"
+) %>%
+  full_join(.,
+            dft_count_med_onc,
+            by = "record_id") %>%
+  mutate(
+    across(
+      .cols = matches("n_.*"),
+      .fns = (function (x) if_else(is.na(x), 0, x))
     )
   )
-  
-  pivot_wider(names_from = image_scan_type,
-              values_from = n) %>%
-  glimpse
 
+dft_count_long <- dft_count_all %>%
+  select(record_id, 
+         n_med_onc, 
+         n_scan_ct, 
+         n_scan_mri, 
+         n_scan_pet_or_pet_ct,
+         n_regimens) %>%
+  pivot_longer(cols = -record_id,
+               names_to = "type",
+               values_to = "n") 
+
+
+get_quantile_df <- function(dat, var, probs = c(0.25, 0.5, 0.75)) {
+  y <- quantile(dat[[var]], probs = probs)
+  rtn <- tibble(y = y) %>%
+    mutate({{var}} := probs)
+  
+  return(rtn)
+}
+test_fn <- dft_count_long %>%
+  filter(type %in% "n_med_onc") %>%
+  get_quantile_df(dat = ., var = "n")
+
+dft_count_quantiles <- dft_count_long %>%
+  nest(.by = type) %>%
+  mutate(res = purrr::map(.f = get_quantile_df,
+                          .x = data,
+                          var = "n")
+  ) %>%
+  select(type, res) %>%
+  unnest(res) 
+
+
+gg_count_ecdf <- ggplot(data = dft_count_long,
+         aes(x = n)) + 
+  stat_ecdf(color = '#4477AA') + 
+  geom_text_repel(data = dft_count_quantiles,
+             # yes, this is screwed up:
+             aes(x = y, y = n, label = y),
+             hjust = 0, nudge_x = 5) + 
+  theme_bw() +
+  facet_wrap(vars(type), scales = "free") + 
+  labs(y = "Cohort proportion")
   
 ```
 
 
-### R1.3 Counts of
+### R1.3a Observation counts (eCDF figure)
+
+The follow plot shows the empirical cumulative distirbution function for the number of observations per subject.  In each plot, three numbers are labelled:  the 25th percentile, the median and the 75th percentile.  The plot also shows how long the tail is on some of these distributions, which is important information to the intended audience (other GENIE BPC data consumers, from what I gathered at our initial meetings).
+
+```{r}
+gg_count_ecdf
+```
 
 
+
+
+
+```{r, include = T}
+dfp_obs_count <- dft_count_all %>%
+  select(-record_id) %>% 
+  gtsummary::tbl_summary()
+  
+```
+
+
+### R1.3b Observation counts (table)
+
+This is a simpler presentation of the same three statistics as the previous figure:
+
+```{r, include = T}
+dfp_obs_count 
+  
+```
 
 
 
