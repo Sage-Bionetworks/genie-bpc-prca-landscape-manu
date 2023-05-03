@@ -1,7 +1,7 @@
 ---
 title: "GENIE BPC Prostate Cancer - Landscape Report"
 author: "Alex Paynter"
-date: "Work started April 4, 2023"
+date: "Started April 4, 2023"
 output: 
   html_document:
     toc: true
@@ -18,13 +18,14 @@ knitr::opts_chunk$set(echo = F, include = F,
 k_dpi <- 150
 ```
 
+
 <style type="text/css">
 .main-container {
-  max-width: 400px;
-  margin-left: auto;
-  margin-right: auto;
+  max-width: 1000px !important;
+  margin: auto;
 }
 </style>
+
 
 
 ```{r}
@@ -44,11 +45,17 @@ library(ggrepel)
 
 library(gt)
 library(gtsummary)
+library(sunburstR)
 
 as_list(here("R", dir(here("R"))))
 
 # Source everything in the "R" folder - just functions, no scripts.
 purrr::walk(.x = here("R", dir(here("R"))), .f = source)
+```
+
+
+```{r, set_gtsummary_theme}
+theme_gtsummary_compact()
 ```
 
 
@@ -325,93 +332,50 @@ if (nrow(
   cli::cli_abort("Med onc data contains partipants not in the index cancer dataset.")
 }
 
-dft_count_med_onc <- dft_med_onc %>%
-  count(record_id) %>%
-  rename(n_med_onc = n)
+dft_count_all <- make_obs_count_df(
+  med_onc_dat = dft_med_onc,
+  img_dat = dft_img,
+  reg_dat = dft_regimens,
+  ca_ind_dat = dft_ca_ind
+)
 
-img_type_levs <- c("n_scan_ct",
-                   "n_scan_mri",
-                   "n_scan_pet_or_pet_ct",
-                   "n_scan_pet_mri",
-                   "n_scan_bone",
-                   "n_scan_other")
-
-dft_count_img <- dft_img %>%
-  count(record_id, image_scan_type) %>%
-  mutate(
-    image_scan_type = case_when(
-      image_scan_type %in% "CT" ~ img_type_levs[1],
-      image_scan_type %in% "MRI" ~ img_type_levs[2],
-      image_scan_type %in% "PET or PET-CT" ~ img_type_levs[3],
-      image_scan_type %in% "PET MRI" ~ img_type_levs[4],
-      image_scan_type %in% "Bone Scan" ~ img_type_levs[5],
-      image_scan_type %in% "Other Nuclear Medicine Scan" ~ img_type_levs[6],
-      T ~ "error in image types"
-    )
-  ) %>%
-  pivot_wider(names_from = image_scan_type,
-              values_from = n) 
-dft_count_img %<>%
-  mutate(
-    n_scan_total = (dft_counts_img %>% 
-                      select(starts_with("n_scan")) %>% 
-                      rowSums(na.rm = T))
-  )
-
-dft_count_reg <- dft_regimens %>% 
-  inner_join(
-    select(dft_ca_ind, record_id, ca_seq),
-    .,
-    by = c("record_id", "ca_seq")
-  ) %>%
-  count(record_id) %>%
-  rename(n_regimens = n)
-
-dft_count_all <- full_join(
-  dft_count_reg,
-  dft_count_img,
-  by = "record_id"
-) %>%
-  full_join(.,
-            dft_count_med_onc,
-            by = "record_id") %>%
-  mutate(
-    across(
-      .cols = matches("n_.*"),
-      .fns = (function (x) if_else(is.na(x), 0, x))
-    )
-  )
-
+obs_type_levs <- c("Med Onc Notes",
+                   "Regimens",
+                   "Total Scans",
+                   "CT Scan",
+                   "MRI Scan",
+                   "PET or PET-CT")
+                   
 dft_count_long <- dft_count_all %>%
   select(record_id, 
          n_med_onc, 
          n_scan_ct, 
          n_scan_mri, 
          n_scan_pet_or_pet_ct,
+         n_scan_total,
          n_regimens) %>%
   pivot_longer(cols = -record_id,
                names_to = "type",
-               values_to = "n") 
-
-
-get_quantile_df <- function(dat, var, probs = c(0.25, 0.5, 0.75)) {
-  y <- quantile(dat[[var]], probs = probs)
-  rtn <- tibble(y = y) %>%
-    mutate({{var}} := probs)
-  
-  return(rtn)
-}
-test_fn <- dft_count_long %>%
-  filter(type %in% "n_med_onc") %>%
-  get_quantile_df(dat = ., var = "n")
+               values_to = "n") %>%
+  mutate(
+    type_f = case_when(
+      type %in% "n_med_onc" ~ obs_type_levs[1],
+      type %in% "n_regimens" ~ obs_type_levs[2],
+      type %in% "n_scan_total" ~ obs_type_levs[3],
+      type %in% "n_scan_ct" ~ obs_type_levs[4],
+      type %in% "n_scan_mri" ~ obs_type_levs[5],
+      type %in% "n_scan_pet_or_pet_ct" ~ obs_type_levs[6]
+    ),
+    type_f = factor(type_f, levels = obs_type_levs)
+  )
 
 dft_count_quantiles <- dft_count_long %>%
-  nest(.by = type) %>%
+  nest(.by = type_f) %>%
   mutate(res = purrr::map(.f = get_quantile_df,
                           .x = data,
                           var = "n")
   ) %>%
-  select(type, res) %>%
+  select(type_f, res) %>%
   unnest(res) 
 
 
@@ -421,19 +385,33 @@ gg_count_ecdf <- ggplot(data = dft_count_long,
   geom_text_repel(data = dft_count_quantiles,
              # yes, this is screwed up:
              aes(x = y, y = n, label = y),
-             hjust = 0, nudge_x = 5) + 
+             hjust = 0, nudge_x = 8, size = 2.5,
+             direction = "x",
+             segment.size = 0.15
+            ) + 
   theme_bw() +
-  facet_wrap(vars(type), scales = "free") + 
-  labs(y = "Cohort proportion")
+  facet_wrap(vars(type_f), scales = "free", nrow = 2) + 
+  scale_y_continuous(
+    name = "Cohort fraction",
+    breaks = c(0, .5, 1),
+    labels = paste0(c(0, .5, 1)*100, "%")
+  ) + 
+  theme(
+    strip.text = element_text(hjust =0)
+  )
+
+
   
 ```
 
 
 ### R1.3a Observation counts (eCDF figure)
 
-The follow plot shows the empirical cumulative distirbution function for the number of observations per subject.  In each plot, three numbers are labelled:  the 25th percentile, the median and the 75th percentile.  The plot also shows how long the tail is on some of these distributions, which is important information to the intended audience (other GENIE BPC data consumers, from what I gathered at our initial meetings).
+The follow plot shows the empirical cumulative distirbution function for the number of observations per subject.  In each plot, three numbers are labelled:  the 25th percentile, the median and the 75th percentile.  
 
-```{r}
+In addition to the basic stats this gives our intended audience for this plot (future BPC data users) information they may need to know in fitting their models.  For example, you can tell how many people have at least 3 regimens, or roughly how many people have over 75 medical oncology notes.
+
+```{r, output_obs_ecdf, include = T}
 gg_count_ecdf
 ```
 
@@ -441,10 +419,20 @@ gg_count_ecdf
 
 
 
-```{r, include = T}
+```{r, create_obs_table, include = T}
 dfp_obs_count <- dft_count_all %>%
-  select(-record_id) %>% 
-  gtsummary::tbl_summary()
+  select(
+    Regimens = n_regimens,
+    `MedOnc Notes` = n_med_onc,
+    `CT` = n_scan_ct,
+    `MRI` = n_scan_mri,
+    `Bone Scans` = n_scan_bone,
+    `Total scans` = n_scan_total
+  ) %>% 
+  gtsummary::tbl_summary(data = .) %>%
+  modify_header(
+    label = '**Observation Type**'
+  )
   
 ```
 
@@ -455,13 +443,49 @@ This is a simpler presentation of the same three statistics as the previous figu
 
 ```{r, include = T}
 dfp_obs_count 
-  
 ```
 
 
 
 
 
+
+
+```{r}
+# Sunburst plots are created in a distinct script,
+#   save_sunbursts.R.
+js_full_sun <- readRDS(
+  here("data", "sunburst_plots","full.rds")
+)
+```
+
+### R1.4a Regimens sunburst, full cohort
+
+This is a sunburst plot, which shows the regimen sequences used by participants in the cohort.  The innermost ring shows the first line therapy, the second ring shows second line therapy, and so on.  For tractability I capped the number of regimens at 3, but we can extend further if needed.
+
+This is an **interactive plot**, so you can mouse over each sector to reveal the drugs represented.
+
+*Credit:* MSK stats team for pioneering the use of these plots for drug regimens - I like them!
+
+```{r, include = T}
+js_full_sun
+```
+
+
+
+```{r}
+js_crpc_sun <- readRDS(
+  here("data", "sunburst_plots","crpc.rds")
+)
+```
+
+### R1.4b Regimens sunburst, post-CRPC
+
+Same plot as previous, limited to regimens started on or after participants were declared Castrate-resistant by medical oncologist note.
+
+```{r, include = T}
+js_crpc_sun
+```
 
 
 
@@ -606,7 +630,13 @@ gg_swim_dmet_dx
 
 - Would it be better to state cores using a within-subject measurement like proportion of core positive (median, IQR).
 - Should we categorize medications?
+- Should we remov
 - Should swimmer plots be indexed by age, dx date or year?
+
+### Todo
+
+- Redo genomic analyses started by Irbaz.
+- Basic survival analyses (starting with OS).
 
 
 ### Missing marker units on some results
