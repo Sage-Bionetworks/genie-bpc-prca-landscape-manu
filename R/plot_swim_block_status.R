@@ -7,6 +7,9 @@ plot_swim_block_status <- function(
   block_var = "md_cast_status_f",
   event_dat,
   event_var = "event",
+  label_dat = NULL,
+  label_var = "lab",
+  order_by_label = F,
   pt_subset,
   line_pal = c("gray80", "#6699cc", "#ee99aa")
 ){
@@ -18,9 +21,26 @@ plot_swim_block_status <- function(
   block_dat_sub <- block_dat %>% filter(record_id %in% pt_subset)
   event_dat_sub <- event_dat %>% filter(record_id %in% pt_subset)
   
-  block_dat_sub %<>%
-    arrange(tt_os_dx_yrs) %>%
-    mutate(record_id = forcats::fct_inorder(record_id))
+  if (order_by_label) {
+    if (is.null(label_dat)) cli::cli_abort("Cant order by a NULL dataset.")
+    label_dat_sub <- label_dat %>%
+      filter(record_id %in% pt_subset) %>%
+      arrange(.data[[label_var]]) %>%
+      mutate(record_id = forcats::fct_inorder(record_id))
+    
+    block_dat_sub %<>% 
+      mutate(record_id = factor(
+        record_id, 
+        levels = levels(label_dat_sub$record_id))
+      )
+  } else {
+    # in this case we just order by time (default)
+    block_dat_sub %<>%
+      arrange(tt_os_dx_yrs) %>%
+      mutate(record_id = forcats::fct_inorder(record_id))
+  }
+  
+  
   event_dat_sub %<>% 
     mutate(record_id = factor(
       record_id, 
@@ -42,8 +62,8 @@ plot_swim_block_status <- function(
     theme_bw() + 
     theme(
       legend.position = "top",
-      axis.text.y = element_blank(),
       axis.title.y = element_blank(),
+      axis.text.y = element_blank(),
       axis.ticks.y = element_blank(),
       panel.grid.major.y = element_blank(),
       panel.grid.minor.y = element_blank()
@@ -57,7 +77,29 @@ plot_swim_block_status <- function(
       name = NULL,
       values = c(18,21,4),
       guide = guide_legend(ncol = 1)
-    )
+    ) 
+  
+  if (!is.null(label_dat)) {
+    if (!order_by_label) {
+      label_dat_sub <- label_dat %>%
+        filter(record_id %in% pt_subset) %>%
+        mutate(record_id = factor(
+          record_id, 
+          levels = levels(block_dat_sub$record_id))
+        )
+    }
+    
+    
+    gg <- gg + 
+      scale_y_discrete(
+        breaks = pull(label_dat_sub, record_id),
+        labels = label_dat_sub[[label_var]],
+      ) + 
+      theme(
+        axis.text.y = element_text(size = 6, hjust = 1),
+        axis.ticks.y = element_blank(),
+      ) 
+  }
   
   return(gg)
   

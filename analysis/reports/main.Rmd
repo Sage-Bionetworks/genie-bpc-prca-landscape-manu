@@ -508,82 +508,7 @@ js_crpc_sun
 
 
 ```{r}
-dft_drug <- dft_ca_ind %>%
-  select(record_id, ca_seq) %>%
-  left_join(
-    ., 
-    dft_regimens,
-    by = c("record_id", "ca_seq")
-  ) %>% 
-  select(record_id:redcap_ca_index,
-         drugs_drug_1:dx_drug_end_or_lastadm_int_5) %>%
-  mutate(across(
-    c(contains("drugs_drug_")),
-    .fn = ~ vec_cast(.x, to = "character"))
-  ) %>%
-  mutate(
-    across(
-      .cols = drugs_startdt_int_1:dx_drug_end_or_lastadm_int_5,
-      .fns = as_double
-    )
-  )
-
-
-
-# split off the character values, we'll do those separately
-#   to avoid casting issues.
-dft_drug_char <- dft_drug %>%
-  select(record_id, 
-         regimen_number, 
-         ca_seq,
-         drugs_drug_1: drugs_drug_5)
-
-dft_drug %<>%
-  select(-contains("drugs_drug_")) %>%
-  pivot_longer(
-    cols = drugs_startdt_int_1:dx_drug_end_or_lastadm_int_5,
-    names_to = "var",
-    values_to = "value"
-  ) %>%
-  # Because "drug_num" is confusing when we have "drugs_num" in 
-  #   the raw data.
-  # This is only an id for drug within regimen within person.
-  mutate(drug_id = readr::parse_number(var),
-         var = stringr::str_replace(var, "_[0-5]", "")) %>%
-  pivot_wider(names_from = "var", values_from = "value") %>%
-  select(record_id, 
-         contains("regimen_number"), 
-         drug_id, 
-         everything()) 
-
-
-# Now do it again for the cluster of character columns.
-#   All the previous ones were integer/double.
-dft_drug_char %<>%
-  pivot_longer(
-    cols = drugs_drug_1: drugs_drug_5,
-    names_to = "var",
-    values_to = "value"
-  ) %>%
-  # Because "drug_num" is confusing when we have "drugs_num" in 
-  #   the raw data.
-  # This is only an id for drug within regimen within person.
-  mutate(drug_id = readr::parse_number(var),
-         var = stringr::str_replace(var, "_[0-5]", "")) %>%
-  # because there is only one column we don't need to pivot here,
-  #  just rename.
-  select(record_id, regimen_number, drug_id, drug = value)
-
-dft_drug <-
-  left_join(dft_drug, dft_drug_char, 
-            by = c("record_id", "regimen_number", "drug_id")) %>%
-  relocate(drug, .before = drugs_startdt_int)
-
-# empty rows here have no meaning - it's just regimens with less
-#   than 5 drugs which is not suprising or interesting.
-dft_drug %<>%
-  filter(!is.na(drug))
-
+dft_drug <- readr::read_csv(here('data', 'drug.csv'))
 
 dfp_top_drugs <- dft_drug %>%
   group_by(record_id, drug) %>%
@@ -686,6 +611,50 @@ gg_top_drugs
 
 
 ```{r}
+js_aed <- readRDS(
+  here("data", "sunburst_plots","abi_enza_doce.rds")
+)
+js_aed_no_dupes <- readRDS(
+  here("data", "sunburst_plots","abi_enza_doce_no_dupes.rds")
+)
+```
+
+### R1.4e Abi/Enza and Docetaxel (all regimens)
+
+Irbaz Riaz expressed interest the order of drugs used for participants who used either Abiraterone/Enzalutamide or Docetaxel. The cohort we examine here is anyone who used any of these drugs.  The two categories are:
+
+1. **(Abi/Enza)** Abiraterone Acetate or Enzalutamide 
+2. **(Docetaxel)** Docetaxel
+
+In the following plot we show the full sequence of regimens containing either of these agent categories:
+
+```{r, include = T}
+js_aed
+```
+
+
+**Observations:** 
+
+- Abi/Enza is a more popular first line therapy.
+- The most frequent second line therapy after Abi/Enza is doing another round of Abi/Enza.
+
+
+### R1.4f Abi/Enza and Docetaxel (repeats removed)
+
+This plot is the same as the previous, except that regimens with repeat enza/abi/doce information are removed.  
+
+For example, if a participant's regimen order was "Abi/Enza, Abi/Enza, Docetaxel" we simplify this to "Abi/Enza, Docetaxel".  But if it was "Abi/Enza, Docetaxel, Abi/Enza" then we keep the full detail (no repeats exist).
+
+
+```{r, include = T}
+js_aed_no_dupes
+```
+
+
+
+
+
+```{r}
 set.seed(189)
 random_pt_subset <- dft_pt$record_id %>% 
   unique %>% 
@@ -734,6 +703,40 @@ gg_swim_cast_dx
 
 
 
+```{r}
+dft_lab <- dft_ca_ind %>%
+  select(record_id, stage_dx)
+
+gg_swim_cast_dx_lab <- plot_swim_block_status(
+  #line_pal = c("gray80", "#ddaa33", "#bb5566"),
+  block_dat = dft_cast_block,
+  block_var = "md_cast_status_f",
+  event_dat = dft_event,
+  event_var = "event",
+  label_dat = dft_lab,
+  label_var = "stage_dx",
+  order_by_label = T,
+  pt_subset = random_pt_subset
+)
+
+ggsave(filename = here("fig", "R1.5a_swim_cast_dx_lab.png"),
+       plot = gg_swim_cast_dx_lab,
+       width = 7, height = 5, dpi = k_dpi)
+```
+
+### R1.5b: Swimmer plot, CRPC/HSPC, dx, stage grouping
+
+```{r, swim_crpc_stage_group_output,  include= T}
+gg_swim_cast_dx_lab
+```
+
+
+
+
+
+
+
+
 
 ```{r}
 dft_cast_block_by_age <- left_join(
@@ -772,7 +775,7 @@ ggsave(filename = here("fig", "R1.5b_swim_cast_age.png"),
 
 ```
 
-### R1.5b: Swimmer plot, CRPC/HSPC, by Age
+### R1.5c: Swimmer plot, CRPC/HSPC, by Age
 
 ```{r, include = T}
 gg_swim_cast_age 
@@ -796,19 +799,93 @@ gg_swim_dmet_dx <- plot_swim_block_status(
   event_dat = dft_event,
   event_var = "event",
   pt_subset = random_pt_subset,
-  line_pal = c("#6699cc", "#ee99aa")
+  line_pal = c("#ee8866", "#44bb99")
+  #line_pal = c("#6699cc", "#ee99aa")
 )
 
-ggsave(filename = here("fig", "R1.5c_swim_dmet_dx.png"),
+ggsave(filename = here("fig", "R1.5d_swim_dmet_dx.png"),
        plot = gg_swim_dmet_dx,
        width = 7, height = 5, dpi = k_dpi)
 ```
 
-### R1.5c: Swimmer plot, Distant metastasis status, from dx
+### R1.5d: Swimmer plot, Distant metastasis status, from dx
 
 ```{r, print_swim_dmet_dx, include = T}
 gg_swim_dmet_dx
 ```
+
+
+
+
+
+
+
+
+
+
+```{r, create_swim_by_site}
+set.seed(1898)
+random_pt_subset_strat_site <- dft_pt %>%
+  group_by(institution) %>%
+  sample_n(size = 10) %>%
+  ungroup() %>%
+  pull(record_id)
+
+dft_cast_block_site <- dft_cast_block %>% 
+  left_join(
+    .,
+    select(dft_pt, record_id, institution),
+    by = 'record_id'
+  )
+
+dft_event_site <- dft_event %>% 
+  left_join(
+    .,
+    select(dft_pt, record_id, institution),
+    by = 'record_id'
+  )
+
+gg_swim_cast_dx_site <- plot_swim_block_status(
+  #line_pal = c("gray80", "#ddaa33", "#bb5566"),
+  block_dat = dft_cast_block_site,
+  block_var = "md_cast_status_f",
+  event_dat = dft_event_site,
+  event_var = "event",
+  pt_subset = random_pt_subset_strat_site,
+)
+
+gg_swim_cast_dx_site <- gg_swim_cast_dx_site +
+  facet_wrap(
+    vars(institution), 
+    scales = "free_y",
+    ncol = 1
+  )
+
+
+
+ggsave(
+  filename = here(
+    "fig", 
+    "R1.5e_swim_cast_dx_site.png"
+  ),
+  plot = gg_swim_cast_dx_site,
+  width = 7, height = 7, dpi = k_dpi
+)
+```
+
+### R1.5e: Swimmer plot, CRPC/HRPC by site
+
+This is a different sample of patients than the previous plots - here we select 10 participants per site (stratified random sample).
+
+**Observation:** There are some major differences in the way sites appear to curate CRPC/HSPC.  UHN probably has different curation practices since all patients go from unknown to castrate-resistant.
+
+```{r, print_swim_dmet_dx_site, include = T, fig.height = 7}
+gg_swim_cast_dx_site
+```
+
+
+
+
 
 
 
@@ -839,12 +916,6 @@ Testosterone and PSA were recorded under a number of units.  We assumed the foll
 
 ## Problems/Concerns
 
-### Questions on data display
-
-- Would it be better to state cores using a within-subject measurement like proportion of core positive (median, IQR).
-- Should we categorize medications?
-- Should we remov
-- Should swimmer plots be indexed by age, dx date or year?
 
 ### Todo
 
@@ -854,7 +925,7 @@ Testosterone and PSA were recorded under a number of units.  We assumed the foll
 
 ### Missing marker units on some results
 
-This was shared with Jennifer Hoppe and Mike Fiandalo at AACR in April 2023:
+There are quite a few testosterone/PSA rows with no units.  This was shared with Jennifer Hoppe and Mike Fiandalo at AACR in April 2023:
 
 ```{r, echo = T, include = T}
 dft_tm_miss_units <- dft_tm %>%

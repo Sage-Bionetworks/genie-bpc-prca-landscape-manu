@@ -1,5 +1,13 @@
 library(sunburstR)
+library(here)
+library(readr)
+library(dplyr)
+library(stringr)
 library(genieBPC)
+library(magrittr)
+
+purrr::walk(.x = here("R", dir(here("R"))),
+            .f = source)
 
 data_list <- readRDS(
   file = here("data-raw", "genieBPC-style", "data_list.rds")
@@ -19,16 +27,20 @@ dft_trt_hist_full <- drug_regimen_sunburst(
   max_n_regimens = 3)
 dft_trt_hist_full <- dft_trt_hist_full$treatment_history
 
-set.seed(838)
-pal_sun_full <- make_sun_pal(nrow(dft_trt_hist_full))
 
-js_sun_full <- sunburstR::sunburst(
-  dft_trt_hist_full,
-  legend = F,
-  count = T,
-  colors = pal_sun_full
-)
+sun_wrap <- function(sun_dat, seed) {
+  set.seed(seed)
+  pal <- make_sun_pal(nrow(sun_dat))
+  js <- sunburstR::sunburst(
+    sun_dat,
+    legend = F,
+    count = T,
+    colors = pal
+  )
+  return(js)
+}
 
+js_sun_full <- sun_wrap(dft_trt_hist_full, seed = 838)
 saveRDS(file = here("data", "sunburst_plots", "full.rds"),
         object = js_sun_full)
 
@@ -68,15 +80,68 @@ dft_trt_hist_crpc <- drug_regimen_sunburst(
   max_n_regimens = 3)
 dft_trt_hist_crpc <- dft_trt_hist_crpc$treatment_history
 
-set.seed(8988)
-pal_sun_crpc <- make_sun_pal(nrow(dft_trt_hist_crpc))
-
-js_sun_crpc <- sunburstR::sunburst(
-  dft_trt_hist_crpc,
-  legend = F,
-  count = T,
-  colors = pal_sun_crpc
-)
+js_sun_crpc <- sun_wrap(dft_trt_hist_crpc, seed = 8988)
 
 saveRDS(file = here("data", "sunburst_plots", "crpc.rds"),
         object = js_sun_crpc)
+
+
+
+
+
+
+
+
+dft_drug <- readr::read_csv(here("data", "drug.csv"))
+
+# Using my drugs dataset first just to get a rough idea on the right answers:
+dft_abi_enza_doce <- dft_drug %>% 
+  filter(str_detect(drug, "(Abiraterone|Enzalutamide|Docetaxel)")) %>%
+  group_by(record_id, ca_seq, regimen_number) %>%
+  summarize(
+    reg_cat = case_when(
+      any(str_detect(drug, "(Abira|Enza)")) & any(str_detect(drug, "Doce")) ~ "Abi/Enza, Docetaxel",
+      any(str_detect(drug, "(Abira|Enza)")) ~ "Abi/Enza",
+      any(str_detect(drug, "(Doce)")) ~ "Docetaxel",
+      T ~ "Error"
+    ),
+    .groups = "drop"
+  ) %>%
+  mutate(reg_cat = factor(reg_cat)) %>%
+  arrange(record_id, ca_seq, regimen_number) 
+
+dft_abi_enza_doce_trt_hist <- make_sunburst_input(
+  dat = dft_abi_enza_doce,
+  var = "reg_cat",
+  order_var = "regimen_number",
+  max_depth = NULL
+)
+
+js_sun_aed <- sun_wrap(dft_abi_enza_doce_trt_hist, seed = 94)
+saveRDS(file = here("data", "sunburst_plots", "abi_enza_doce.rds"),
+        object = js_sun_aed)
+
+
+# Same thing but remove the duplicates, e.g. if a participant
+#   has Enza followed by Enza - who cares?
+dft_abi_enza_doce_trt_hist_no_dupes <- make_sunburst_input(
+  dat = dft_abi_enza_doce,
+  var = "reg_cat",
+  order_var = "regimen_number",
+  max_depth = NULL,
+  remove_dupes = T
+)
+
+js_sun_aed_no_dupes <- sun_wrap(
+  dft_abi_enza_doce_trt_hist_no_dupes, 
+  seed = 94
+)
+saveRDS(
+  file = here("data", "sunburst_plots", "abi_enza_doce_no_dupes.rds"),
+  object = js_sun_aed_no_dupes
+)
+
+
+
+
+
