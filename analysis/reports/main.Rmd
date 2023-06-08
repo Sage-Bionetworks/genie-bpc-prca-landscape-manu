@@ -689,17 +689,78 @@ n_prca_cohort <- dft_ca_ind %>% nrow()
 
 gg_top_drugs <- plot_drug_prop(
   drug_dat = dfp_top_drugs,
-  cohort_n = n_prca_cohort
+  cohort_n = n_prca_cohort,
+  sample(viridisLite::magma(n = 10, begin = 0.2, end = 0.8)),
+  plot_title = glue("Drugs started any time (n={n_prca_cohort})")
 )
+
+
+# Now repeat the calculation above for CRPC regimens only.
+dft_cast_block <- make_cast_status_block(
+  dft_med_onc, 
+  dft_ca_ind, 
+  remove_hspc_after_crpc = T
+)
+n_prca_crpc <- dft_cast_block %>% 
+  filter(md_cast_status_f %in% "Castrate-Resistant") %>%
+  nrow
+
+dft_drug_crpc <- dft_cast_block %>%
+  filter(md_cast_status_f %in% "Castrate-Resistant") %>%
+  mutate(crpc_start_days = dx_block_start * 365.25) %>%
+  select(record_id, crpc_start_days) %>%
+  inner_join(
+    dft_drug, 
+    ., 
+    by = "record_id",
+    relationship = "many-to-one"
+  )
+
+dft_drug_crpc %<>% 
+  # dx_drug_start_int is the number of days from dx to start of drug.
+  filter(dx_drug_start_int >= crpc_start_days)
+
+# Same processing from here:
+dfp_top_drugs_crpc <- dft_drug_crpc %>%
+  group_by(record_id, drug) %>%
+  summarize(observed = 1, .groups = "drop") %>%
+  group_by(drug) %>%
+  summarize(n = sum(observed)) %>%
+  arrange(desc(n)) %>%
+  head(10) %>%
+  mutate(drug = str_replace(drug, "\\(.*\\)", ""))
+
+gg_top_drugs_crpc <- plot_drug_prop(
+  drug_dat = dfp_top_drugs_crpc,
+  cohort_n = n_prca_crpc,
+  pal = sample(viridisLite::viridis(n = 10, begin = 0.2, end = 0.8)),
+  plot_title = glue("Drugs started in CRPC setting (n={n_prca_crpc})")
+)
+
+gg_top_drug_comb <- cowplot::plot_grid(
+  gg_top_drugs, gg_top_drugs_crpc,
+  ncol = 1
+)
+    
 ```
 
-### R1.5d Drugs used, figure
+### *R1.5d Drugs used (All + post-CRPC)
 
-Proportion of the cohort ever exposed to each agent, limited to the top 10 most used.
+Proportion of the cohort ever exposed to each agent, limited to the top 10 most used.  Top figure shows the entire cohort, bottom figure restricts to drugs started after a CRPC med onc note.  Participants who never had a CRPC note are obviously excluded.
 
-```{r, output_top_drug_plot, include = T, fig.height = 3, fig.width = 7}
-gg_top_drugs
+```{r, output_top_drug_plot, include = T, fig.height = 6, fig.width = 7}
+gg_top_drug_comb
 ```
+
+
+
+
+
+
+
+
+
+
 
 
 
