@@ -120,8 +120,7 @@ dft_ca_ind_baseline_sub <- dft_ca_ind %>%
     `Source of dx` = ca_dx_how,
     # Update May 5:  Removed histology (unimportant)
     # `Histology` = ca_hist_adeno_squamous, # at dx?
-    `Pathologic N Stage` = ca_path_n_stage,
-    age_dx
+    `Pathologic N Stage` = ca_path_n_stage
   ) 
 
 # On histology alternatives:
@@ -195,10 +194,10 @@ dft_demo <- full_join(
 # age_dx is not an integer in this cohort, so this should be more exact.
 dft_demo %<>% 
   mutate(
-    `Year of birth` = as.integer(birth_year),
-    `Year of diagnosis` = floor(birth_year + age_dx)
+    `Year of birth` = birth_year,
+    `Year of diagnosis` = round(birth_year + `Age at dx (years)`)
   ) %>%
-  select(-birth_year, -age_dx) %>%
+  select(-birth_year) %>%
   relocate(`Year of birth`, `Year of diagnosis`,
            .before = `Age at dx (years)`) 
 
@@ -208,7 +207,7 @@ dft_demo %<>%
 
 ## Content
 
-### R1.1a: Characteristics at dx
+### *R1.1a: Characteristics at dx
 
 For most analyses, especially survival, the timing of observations is critical.  Here we have separated baseline characteristics (Table R1.1) and characteristics which could represent a first post-baseline observation (Table R1.2).  After speaking with Jennifer Hoppe at AACR, my understanding is that for all prostate specific variables in the cancer diagnosis dataset, curators were instructed to curate from time of diagnosis through completion of surgeries in the first course of treatment.  Therefore, those variables are in Table R1.2 unless we can confirm they were exclusively measured at baseline.
 
@@ -227,7 +226,7 @@ dft_demo %>%
   )
 ```
 
-### R1.1b: Characteristics at dx by site
+### *R1.1b: Characteristics at dx by site
 
 Observations:
 
@@ -259,18 +258,101 @@ dft_demo %>%
 
 
 ```{r, create_seq_data_table}
+# Table of characteristics at sequencing.
+dft_char_seq <- get_first_cpt(dft_ca_ind)
+
+# Figure out if the participants were castrate resistant at seq time:
+dft_cast_block_seq <- make_cast_status_block(
+  dft_med_onc, 
+  dft_ca_ind, 
+  remove_hspc_after_crpc = T) %>%
+  select(record_id, md_cast_status_f, matches("^dx_block"))
+dft_cast_block_seq %<>% left_join(
+  .,
+  select(dft_char_seq, record_id, dx_cpt_rep_yrs),
+  by = "record_id",
+  relationship = "many-to-one"
+) %>%
+  filter(dx_cpt_rep_yrs >= dx_block_start & 
+           dx_cpt_rep_yrs < dx_block_end)
+# count(dft_char_seq, record_id, ca_seq, sort = T)
+dft_cast_block_seq %<>% 
+  select(-matches("^dx_block"), -dx_cpt_rep_yrs)
+dft_char_seq %<>% left_join(., dft_cast_block_seq, by = "record_id")
+dft_char_seq %<>%
+  mutate(md_cast_status_f = forcats::fct_na_value_to_level(
+    md_cast_status_f,
+    level = "Not yet declared")
+  )
 
 
+# Figure out if distant metastasis has been diagnosed by sequencing:
+dft_char_seq <- make_dmet_status_block(ca_ind_dat = dft_ca_ind) %>% 
+  filter(dmet_status %in% "Distant Metastasis") %>%
+  select(record_id, ca_seq, dmet_start = dx_block_start) %>%
+  left_join(
+    dft_char_seq,
+    .,
+    by = c("record_id", "ca_seq"),
+    relationship = "one-to-one"
+  )
+dft_char_seq %<>% 
+  mutate(dmet_at_seq = case_when(
+    is.na(dmet_start) ~ "No",
+    dmet_start > dx_cpt_rep_yrs ~ "No",
+    T ~ "Yes"
+  )) %>% 
+  select(-dmet_start)
+
+# Pull in some additional variables from other datasets for time calcs:
+dft_char_seq <- dft_pt %>%
+  select(record_id, birth_year) %>%
+  left_join(
+    dft_char_seq,
+    .,
+    by = "record_id"
+  )
+dft_char_seq <- left_join(
+  dft_char_seq,
+  select(
+    dft_ca_ind, record_id, ca_seq, dob_ca_dx_yrs
+  ),
+  by = c("record_id", "ca_seq")
+)
+dft_char_seq %<>%
+  mutate(
+    seq_year = round(birth_year + dob_ca_dx_yrs + dx_cpt_rep_yrs),
+  ) %>% 
+  select(
+    record_id,
+    `Year of sequencing` = seq_year,
+    `Dx to seq. (years)` = dx_cpt_rep_yrs,
+    `Distant metastasis at seq.` = dmet_at_seq,
+    `Castration status at seq.` = md_cast_status_f
+  )
+    
+
+```
+
+### *R1.2: Characteristics at sequencing
+
+The following table displays cohort characteristics at the time of sequencing.  The year of sequencing is approximate (could be off by one year in either direction).
+
+```{r, output_char_at_seq, include = T}
+dft_char_seq %>%
+  select(-record_id) %>%
+  gtsummary::tbl_summary(
+    data = .,
+    digits = list(
+      `Year of sequencing` ~ 0
+    )
+  )
 ```
 
 
 
 
-
-
-
-
-```{r}
+```{r, create_post_dx_char}
 dft_ca_ind_post_baseline <- dft_ca_ind %>%
   mutate(
     ce_num = format_cores(ca_pros_num_cores),
