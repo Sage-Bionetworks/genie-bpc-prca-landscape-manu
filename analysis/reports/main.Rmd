@@ -687,42 +687,10 @@ dfp_top_drugs %>%
 ```{r, create_top_drug_plot}
 n_prca_cohort <- dft_ca_ind %>% nrow()
 
-set.seed(3890)
-gg_top_drugs <- dfp_top_drugs %>%
-  select(drug, n) %>%
-  mutate(
-    prop = n/n_prca_cohort,
-    str = glue("n={n} ({formatC(prop*100, digits = 1, format = 'f')}%)")
-  ) %>%
-  mutate(drug = forcats::fct_inorder(drug)) %>%
-  ggplot(data = .,
-         aes(x = prop, y = drug, fill = drug)) +
-  geom_col() + 
-  annotate(
-    geom = 'rect', 
-    xmin = 1, xmax = 1.5, ymin = -2, ymax = 15,
-    color = "gray80", fill = "gray80"
-  ) + 
-  geom_text(size = 2.5, 
-            nudge_x = .05, 
-            hjust = 0, 
-            aes(label = str)) + 
-  scale_fill_manual(
-    values = sample(make_sun_pal(10))
-  ) + 
-  scale_x_continuous(
-    name = "Proportion of cohort",
-    breaks = c(0,0.5,1),
-    labels = paste(c(0, 50, 100), "%"),
-    expand = expansion(mult = c(0,0.05), add = c(0,0))
-  ) + 
-  scale_y_discrete(limits = rev) + 
-  coord_cartesian(xlim = c(0,1.1), ylim = c(0.9, 10.1)) + 
-  theme_bw() +
-  theme(
-    axis.title.y = element_blank(),
-    legend.position = "none"
-  )
+gg_top_drugs <- plot_drug_prop(
+  drug_dat = dfp_top_drugs,
+  cohort_n = n_prca_cohort
+)
 ```
 
 ### R1.5d Drugs used, figure
