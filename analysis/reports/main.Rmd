@@ -255,6 +255,21 @@ dft_demo %>%
 
 
 
+
+
+
+```{r, create_seq_data_table}
+
+
+```
+
+
+
+
+
+
+
+
 ```{r}
 dft_ca_ind_post_baseline <- dft_ca_ind %>%
   mutate(
@@ -955,7 +970,7 @@ Testosterone and PSA were recorded under a number of units.  We assumed the foll
 
 ### Missing marker units on some results
 
-There are quite a few testosterone/PSA rows with no units.  This was shared with Jennifer Hoppe and Mike Fiandalo at AACR in April 2023:
+There are quite a few testosterone/PSA rows with no units.  These have just been excluded form the analysis.  The numbers of exclusions are low relative to the amount of data:
 
 ```{r, echo = T, include = T}
 dft_tm_miss_units <- dft_tm %>%

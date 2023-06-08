@@ -4,13 +4,7 @@ make_event_df <- function(ca_ind_dat,
                           cast_block_dat) {
   
   # for each index cancer get the first cpt
-  first_panel_dates <- ca_ind_dat %>% 
-    select(record_id, ca_seq) %>%
-    left_join(., dft_cpt, by = c("record_id", "ca_seq")) %>%
-    arrange(cpt_number) %>%
-    group_by(record_id) %>%
-    slice(1) %>%
-    ungroup() %>%
+  first_panel_dates <- get_first_cpt(ca_ind_dat) %>%
     select(record_id, t_yrs = dx_cpt_rep_yrs)
   
   event_dat <- cast_block_dat %>%
