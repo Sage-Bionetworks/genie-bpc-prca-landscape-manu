@@ -352,7 +352,7 @@ dfp_post_baseline <- dft_post_baseline %>%
 ```
 
 
-### R1.2a: Characteristics (dx onward)
+### R1.3a: Characteristics (dx onward)
 
 The characteristics in this table were known to be curated from diagnosis to the end of surgeries in the first round of treatment.  In the case of castration status, we take the first value where CRPC/HRPC was declared (that is, ignore the records where no determination was made).
 
@@ -363,7 +363,7 @@ dfp_post_baseline %>%
   gtsummary::tbl_summary(data = .)
 ```
 
-### R1.2b: Characteristics (dx onward) by site
+### R1.3b: Characteristics (dx onward) by site
 
 Observations on the table:
 
@@ -463,7 +463,7 @@ gg_count_ecdf <- ggplot(data = dft_count_long,
 ```
 
 
-### R1.3a Observation counts (eCDF figure)
+### R1.4a Observation counts (eCDF figure)
 
 The follow plot shows the empirical cumulative distirbution function for the number of observations per subject.  In each plot, three numbers are labelled:  the 25th percentile, the median and the 75th percentile.  
 
@@ -496,7 +496,7 @@ dfp_obs_count <- dft_count_all %>%
 ```
 
 
-### R1.3b Observation counts (table)
+### R1.4b Observation counts (table)
 
 This is a simpler presentation of the same three statistics as the previous figure:
 
@@ -518,7 +518,7 @@ js_full_sun <- readRDS(
 )
 ```
 
-### R1.4a Regimens sunburst, full cohort
+### R1.5a Regimens sunburst, full cohort
 
 This is a sunburst plot, which shows the regimen sequences used by participants in the cohort.  The innermost ring shows the first line therapy, the second ring shows second line therapy, and so on.  For tractability I capped the number of regimens at 3, but we can extend further if needed.
 
@@ -538,7 +538,7 @@ js_crpc_sun <- readRDS(
 )
 ```
 
-### R1.4b Regimens sunburst, post-CRPC
+### R1.5b Regimens sunburst, post-CRPC
 
 Same plot as previous, limited to regimens started on or after participants were declared Castrate-resistant by medical oncologist note.
 
@@ -578,7 +578,7 @@ dfp_top_drugs <- dfp_top_drugs %>%
 ```
 
 
-### R1.4c Drugs used, table
+### R1.5c Drugs used, table
 
 The number of participants (n) who used a particular drug in any regimen.  `Compliment 1` states the drug mostly commonly used in regimens containing `Drug`.  
 
@@ -643,7 +643,7 @@ gg_top_drugs <- dfp_top_drugs %>%
   )
 ```
 
-### R1.4d Drugs used, figure
+### R1.5d Drugs used, figure
 
 Proportion of the cohort ever exposed to each agent, limited to the top 10 most used.
 
@@ -664,7 +664,7 @@ js_aed_no_dupes <- readRDS(
 )
 ```
 
-### R1.4e Abi/Enza and Docetaxel (all regimens)
+### R1.5e Abi/Enza and Docetaxel (all regimens)
 
 Irbaz Riaz expressed interest the order of drugs used for participants who used either Abiraterone/Enzalutamide or Docetaxel. The cohort we examine here is anyone who used any of these drugs.  The two categories are:
 
@@ -684,7 +684,7 @@ js_aed
 - The most frequent second line therapy after Abi/Enza is doing another round of Abi/Enza.
 
 
-### R1.4f Abi/Enza and Docetaxel (repeats removed)
+### R1.5f Abi/Enza and Docetaxel (repeats removed)
 
 This plot is the same as the previous, except that regimens with repeat enza/abi/doce information are removed.  
 
@@ -729,7 +729,7 @@ ggsave(filename = here("fig", "R1.5a_swim_cast_dx.png"),
        width = 7, height = 5, dpi = k_dpi)
 ```
 
-### R1.5a: Swimmer plot, CRPC/HSPC, from dx
+### R1.6a: Swimmer plot, CRPC/HSPC, from dx
 
 **General note for swimmer plots** For the moment we're using a random subset of participants.  When we decide on a final set of plots for the manuscript, it may make sense to choose a representative cohort based on what we're showing.
 
@@ -769,7 +769,7 @@ ggsave(filename = here("fig", "R1.5a_swim_cast_dx_lab.png"),
        width = 7, height = 5, dpi = k_dpi)
 ```
 
-### R1.5b: Swimmer plot, CRPC/HSPC, dx, stage grouping
+### R1.6b: Swimmer plot, CRPC/HSPC, dx, stage grouping
 
 ```{r, swim_crpc_stage_group_output,  include= T}
 gg_swim_cast_dx_lab
@@ -820,7 +820,7 @@ ggsave(filename = here("fig", "R1.5b_swim_cast_age.png"),
 
 ```
 
-### R1.5c: Swimmer plot, CRPC/HSPC, by Age
+### R1.6c: Swimmer plot, CRPC/HSPC, by Age
 
 ```{r, include = T}
 gg_swim_cast_age 
@@ -853,7 +853,7 @@ ggsave(filename = here("fig", "R1.5d_swim_dmet_dx.png"),
        width = 7, height = 5, dpi = k_dpi)
 ```
 
-### R1.5d: Swimmer plot, Distant metastasis status, from dx
+### R1.6d: Swimmer plot, Distant metastasis status, from dx
 
 ```{r, print_swim_dmet_dx, include = T}
 gg_swim_dmet_dx
@@ -918,7 +918,7 @@ ggsave(
 )
 ```
 
-### R1.5e: Swimmer plot, CRPC/HRPC by site
+### R1.6e: Swimmer plot, CRPC/HRPC by site
 
 This is a different sample of patients than the previous plots - here we select 10 participants per site (stratified random sample).
 
