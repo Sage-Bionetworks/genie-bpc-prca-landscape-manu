@@ -60,6 +60,7 @@ purrr::walk(.x = here("R", dir(here("R"))), .f = source)
 
 ```{r, set_gtsummary_theme}
 theme_gtsummary_compact()
+theme_gtsummary_language("en", big.mark = "") # for now.
 ```
 
 
@@ -101,7 +102,8 @@ dft_pt_baseline_sub <- dft_pt %>%
   select(record_id, 
          Institution = institution,
          `Race (primary)`,
-         `Ethnicity`)
+         `Ethnicity`,
+         birth_year)
 
 
 dft_ca_ind_baseline_sub <- dft_ca_ind %>%
@@ -118,7 +120,8 @@ dft_ca_ind_baseline_sub <- dft_ca_ind %>%
     `Source of dx` = ca_dx_how,
     # Update May 5:  Removed histology (unimportant)
     # `Histology` = ca_hist_adeno_squamous, # at dx?
-    `Pathologic N Stage` = ca_path_n_stage # describes spread to lymph nodes
+    `Pathologic N Stage` = ca_path_n_stage,
+    age_dx
   ) 
 
 # On histology alternatives:
@@ -162,9 +165,11 @@ dft_tm_baseline %<>%
     names_from = "tm_type",
     values_from = "tm_num_result_conv"
   ) %>%
+  # Not needed, decision made 2023 May 8
+  select(-Testosterone) %>% 
   rename(
     `PSA (ng/mL)` = PSA,
-    `Testosterone (ng/dL)` = Testosterone
+    #`Testosterone (ng/dL)` = Testosterone
   )
 
 
@@ -187,7 +192,19 @@ dft_demo <- full_join(
     by = "record_id"
   )
 
+# age_dx is not an integer in this cohort, so this should be more exact.
+dft_demo %<>% 
+  mutate(
+    `Year of birth` = as.integer(birth_year),
+    `Year of diagnosis` = floor(birth_year + age_dx)
+  ) %>%
+  select(-birth_year, -age_dx) %>%
+  relocate(`Year of birth`, `Year of diagnosis`,
+           .before = `Age at dx (years)`) 
+
 ```
+
+
 
 ## Content
 
@@ -201,7 +218,13 @@ For Testosterone and PSA, an arbitrary choice was made to limit observations to 
 ```{r, tab_r1_1a, include = T}
 dft_demo %>%
   select(-record_id) %>%
-  gtsummary::tbl_summary(data = .)
+  gtsummary::tbl_summary(
+    data = .,
+    digits = list(
+      `Year of birth` ~ 0,
+      `Year of diagnosis` ~ 0
+    )
+  )
 ```
 
 ### R1.1b: Characteristics at dx by site
@@ -214,7 +237,14 @@ Observations:
 ```{r, tab_r1_1b, include = T}
 dft_demo %>%
   select(-record_id) %>%
-  gtsummary::tbl_summary(data = ., by = Institution)
+  gtsummary::tbl_summary(
+    data = ., 
+    by = Institution,
+    digits = list(
+      `Year of birth` ~ 0,
+      `Year of diagnosis` ~ 0
+    )
+  )
 ```
 
 

@@ -2,6 +2,7 @@
 # Using my drugs dataset first just to get a rough idea on the right answers:
 dft_abi_enza_doce <- dft_drug %>% 
   filter(str_detect(drug, "(Abiraterone|Enzalutamide|Docetaxel)")) %>%
+  tabyl(drug)
   group_by(record_id, ca_seq, regimen_number) %>%
   summarize(
     reg_cat = case_when(
