@@ -43,7 +43,9 @@ plot_drug_prop <- function(drug_dat, cohort_n, pal = NULL, pal_seed = 278, plot_
       legend.position = "none",
       panel.grid.major.y = element_blank(),
       panel.grid.minor.y = element_blank(),
-      plot.title.position = 'plot'
+      plot.title.position = 'plot',
+      # Allows the "%" to stay on "100%"
+      plot.margin = margin(r = 20, unit = "pt")
     )
   
   return(gg)
