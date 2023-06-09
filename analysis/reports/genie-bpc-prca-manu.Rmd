@@ -1016,8 +1016,7 @@ gg_swim_dmet_dx <- plot_swim_block_status(
   event_dat = dft_event,
   event_var = "event",
   pt_subset = random_pt_subset,
-  line_pal = c("#ee8866", "#44bb99")
-  #line_pal = c("#6699cc", "#ee99aa")
+  line_pal = c("gray80", "#997700")
 )
 
 ggsave(filename = here("fig", "R1.5d_swim_dmet_dx.png"),
