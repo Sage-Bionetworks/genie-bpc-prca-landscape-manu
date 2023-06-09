@@ -360,7 +360,7 @@ dft_char_seq %>%
 
 The following table displays cohort characteristics at the time of sequencing.  The year of sequencing is approximate (could be off by one year in either direction).
 
-```{r, output_char_at_seq, include = T}
+```{r, output_char_at_seq_by_site, include = T}
 dft_char_seq %>%
   select(-record_id) %>%
   gtsummary::tbl_summary(
