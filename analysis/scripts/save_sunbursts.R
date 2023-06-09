@@ -30,9 +30,11 @@ dft_trt_hist_full <- drug_regimen_sunburst(
 dft_trt_hist_full <- dft_trt_hist_full$treatment_history
 
 
-sun_wrap <- function(sun_dat, seed) {
-  set.seed(seed)
-  pal <- make_sun_pal(nrow(sun_dat))
+plot_regimen_sunburst <- function(sun_dat, seed = 94, pal = NULL) {
+  if (is.null(pal)) {
+    set.seed(seed)
+    pal <- make_sun_pal(nrow(sun_dat))
+  }
   js <- sunburstR::sunburst(
     sun_dat,
     legend = F,
@@ -42,7 +44,13 @@ sun_wrap <- function(sun_dat, seed) {
   return(js)
 }
 
-js_sun_full <- sun_wrap(dft_trt_hist_full, seed = 838)
+js_sun_full <- plot_regimen_sunburst(
+  dft_trt_hist_full, 
+  pal = (viridisLite::magma(
+    n = sum(choose(3, 1:3)),
+    begin = 0.1, end = 0.9,
+  ))
+)
 saveRDS(file = here("data", "sunburst_plots", "full.rds"),
         object = js_sun_full)
 
@@ -82,7 +90,13 @@ dft_trt_hist_crpc <- drug_regimen_sunburst(
   max_n_regimens = 3)
 dft_trt_hist_crpc <- dft_trt_hist_crpc$treatment_history
 
-js_sun_crpc <- sun_wrap(dft_trt_hist_crpc, seed = 8988)
+js_sun_crpc <- plot_regimen_sunburst(
+  dft_trt_hist_crpc, 
+  pal = (viridisLite::inferno(
+    n = sum(choose(3, 1:3)),
+    begin = 0.1, end = 0.9,
+  ))
+)
 
 saveRDS(file = here("data", "sunburst_plots", "crpc.rds"),
         object = js_sun_crpc)
@@ -137,33 +151,22 @@ dft_abi_enza_doce <- get_limited_drug_data(
     "Docetaxel",
     "Enzalutamide"
   )
-  
 )
-
-dft_drug %>% 
-  filter(str_detect(drug, "(Abiraterone|Enzalutamide|Docetaxel)")) %>%
-  pull(drug) %>% unique
-  group_by(record_id, ca_seq, regimen_number) %>%
-  summarize(
-    reg_cat = case_when(
-      any(str_detect(drug, "(Abira|Enza)")) & any(str_detect(drug, "Doce")) ~ "Abi/Enza, Docetaxel",
-      any(str_detect(drug, "(Abira|Enza)")) ~ "Abi/Enza",
-      any(str_detect(drug, "(Doce)")) ~ "Docetaxel",
-      T ~ "Error"
-    ),
-    .groups = "drop"
-  ) %>%
-  mutate(reg_cat = factor(reg_cat)) %>%
-  arrange(record_id, ca_seq, regimen_number) 
 
 dft_abi_enza_doce_trt_hist <- make_sunburst_input(
   dat = dft_abi_enza_doce,
-  var = "reg_cat",
+  var = "regimen_drugs",
   order_var = "regimen_number",
   max_depth = NULL
 )
 
-js_sun_aed <- sun_wrap(dft_abi_enza_doce_trt_hist, seed = 94)
+js_sun_aed <- plot_regimen_sunburst(
+  dft_abi_enza_doce_trt_hist, 
+  pal = (viridisLite::mako(
+    n = sum(choose(3, 1:3)),
+    begin = 0.1, end = 0.9,
+  ))
+)
 saveRDS(file = here("data", "sunburst_plots", "abi_enza_doce.rds"),
         object = js_sun_aed)
 
@@ -172,20 +175,29 @@ saveRDS(file = here("data", "sunburst_plots", "abi_enza_doce.rds"),
 #   has Enza followed by Enza - who cares?
 dft_abi_enza_doce_trt_hist_no_dupes <- make_sunburst_input(
   dat = dft_abi_enza_doce,
-  var = "reg_cat",
+  var = "regimen_drugs",
   order_var = "regimen_number",
   max_depth = NULL,
   remove_dupes = T
 )
 
-js_sun_aed_no_dupes <- sun_wrap(
+js_sun_aed_no_dupes <- plot_regimen_sunburst(
   dft_abi_enza_doce_trt_hist_no_dupes, 
-  seed = 94
+  seed = 94,
+  pal = (viridisLite::plasma(
+    n = sum(choose(3, 1:3)),
+    begin = 0.1, end = 0.9,
+  ))
 )
 saveRDS(
   file = here("data", "sunburst_plots", "abi_enza_doce_no_dupes.rds"),
   object = js_sun_aed_no_dupes
 )
+
+
+
+
+
 
 
 
