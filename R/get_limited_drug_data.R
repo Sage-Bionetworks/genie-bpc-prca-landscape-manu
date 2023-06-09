@@ -1,6 +1,10 @@
 get_limited_drug_data <- function(drug_dat, drug_str, warn = T, factorize = T) {
   drug_dat %<>%
-    mutate(drug = str_replace(drug, "\\(.*\\)", ""))
+    mutate(
+      drug = str_replace(drug, "\\(.*\\)", ""),
+      # some drugs have whitespace like Radium.  Inconsistency abounds.
+      drug = str_trim(drug)
+    )
   
   if (any(!(drug_str %in% unique(drug_dat$drug))) & warn) {
     unobserved_drugs <- drug_str[!(drug_str %in% unique(drug_dat$drug))]

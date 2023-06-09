@@ -98,36 +98,6 @@ dft_drug <- readr::read_csv(here("data", "drug.csv"))
 # Using my drugs dataset first just to get a rough idea on the right answers:
 # dft_abi_enza_doce <- 
 
-get_limited_drug_data <- function(drug_dat, drug_str, warn = T, factorize = T) {
-  drug_dat %<>%
-    mutate(drug = str_replace(drug, "\\(.*\\)", ""))
-  
-  if (any(!(drug_str %in% unique(drug_dat$drug))) & warn) {
-    unobserved_drugs <- drug_str[!(drug_str %in% unique(drug_dat$drug))]
-    cli::cli_alert_danger(
-      glue(
-        "Some inputs not found in drug_dat: {paste(unobserved_drugs, collapse = ', ')}"
-      )
-    )
-  }
-  
-  drug_dat %<>%
-    filter(drug %in% drug_str) %>%
-    group_by(record_id, ca_seq, regimen_number) %>%
-    summarize(
-      regimen_drugs = paste0(sort(drug), collapse = ", "),
-      .groups = "drop"
-    ) 
-  
-  if (factorize) {
-    drug_dat %<>% mutate(regimen_drugs = factor(regimen_drugs)) 
-  }
-  
-  drug_dat %<>% arrange(record_id, ca_seq, regimen_number) 
-  
-  return(drug_dat)
-  
-}
 
 dft_abi_enza_doce <- get_limited_drug_data(
   dft_drug, 
@@ -182,6 +152,40 @@ saveRDS(
 
 
 
+
+
+# Update From May 8:  Create a plot similar to abi/enza/doce except with 
+#   Radium 223 and docetaxel.
+
+dft_rad_doce <- get_limited_drug_data(
+  dft_drug, 
+  drug_str = c(
+    "Docetaxel",
+    "Radium RA 223 Dichloride"
+  )
+)
+
+dft_rad_doce_hist_no_dupes <- make_sunburst_input(
+  dat = dft_rad_doce,
+  var = "regimen_drugs",
+  order_var = "regimen_number",
+  max_depth = NULL,
+  remove_dupes = T
+)
+
+js_sun_rad_doce_no_dupes <- plot_regimen_sunburst(
+  dft_rad_doce_hist_no_dupes,
+  seed = 94,
+  pal = (viridisLite::inferno(
+    n = sum(choose(2, 1:2)),
+    begin = 0.3, end = 0.7,
+  ))
+)
+
+saveRDS(
+  file = here("data", "sunburst_plots", "radium_doce_no_dupes.rds"),
+  object = js_sun_rad_doce_no_dupes
+)
 
 
 
