@@ -113,7 +113,7 @@ js_sun_aed <- plot_regimen_sunburst(
   dft_abi_enza_doce_trt_hist, 
   pal = (viridisLite::plasma(
     n = sum(choose(3, 1:3)),
-    begin = 01, end = 0.7,
+    begin = 0.1, end = 0.7,
   ))
 )
 saveRDS(file = here("data", "sunburst_plots", "abi_enza_doce.rds"),
@@ -133,7 +133,7 @@ dft_abi_enza_doce_trt_hist_no_dupes <- make_sunburst_input(
 js_sun_aed_no_dupes <- plot_regimen_sunburst(
   dft_abi_enza_doce_trt_hist_no_dupes, 
   seed = 94,
-  pal = (viridisLite::mako(
+  pal = (viridisLite::magma(
     n = sum(choose(3, 1:3)),
     begin = 0.1, end = 0.7,
   ))

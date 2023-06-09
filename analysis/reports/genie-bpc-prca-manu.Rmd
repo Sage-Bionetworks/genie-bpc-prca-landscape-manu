@@ -818,10 +818,7 @@ js_rad_doce_no_dupes <- readRDS(
 
 ### *R1.5e Drugs: Abi, Enza, Doce (all regimens)
 
-Irbaz Riaz expressed interest the order of drugs used for participants who used either Abiraterone/Enzalutamide or Docetaxel. The cohort we examine here is anyone who used any of these drugs.  The two categories are:
-
-1. **(Abi/Enza)** Abiraterone Acetate or Enzalutamide 
-2. **(Docetaxel)** Docetaxel
+The group was interested in the order of drugs used for participants who used Abiraterone, Enzalutamide or Docetaxel. The cohort we examine here is anyone who used any of these drugs.  
 
 In the following plot we show the full sequence of regimens containing either of these agent categories:
 
@@ -832,15 +829,14 @@ js_aed
 
 **Observations:** 
 
-- Abi/Enza is a more popular first line therapy.
-- The most frequent second line therapy after Abi/Enza is doing another round of Abi/Enza.
+- Abiraterone Acetate seems to be the most common first line therapy, but all three are used frequently.
 
 
 ### *R1.5f Drugs: Abi, Enza, Doce (repeats removed)
 
 This plot is the same as the previous, except that regimens with repeat enza/abi/doce information are removed.  
 
-For example, if a participant's regimen order was "Abi/Enza, Abi/Enza, Docetaxel" we simplify this to "Abi/Enza, Docetaxel".  But if it was "Abi/Enza, Docetaxel, Abi/Enza" then we keep the full detail (no repeats exist).
+For example, if a participant's regimen order was "Abiraterone, Abiraterone, Docetaxel" we simplify this to "Abiraterone, Docetaxel".  But if it was "Abiraterone, Docetaxel, Abiraterone" then we keep the full detail (no repeats exist).
 
 
 ```{r, include = T}
@@ -856,14 +852,17 @@ js_aed_no_dupes
 
 ### *R1.5g Drugs: Radium, Docetaxel (repeats removed)
 
-This plot uses the "repeats removed" format for drug regimens, see R1.5f for more information.
+This plot uses the "repeats removed" format for drug regimens, see R1.5f for more information.  In this our cohort is formed by participants who used either Radium 223 and Docetaxel at any point in their monitoring.
 
 
 ```{r, include = T}
 js_rad_doce_no_dupes 
-
 ```
 
+**Observations:** 
+
+- Radium is by far less common as a first choice.  Most people who used docetaxel did not go on to take radium.
+- Among those who used both Radium 223 and Docetaxel, both orderings were common (12.3% Rad->Doce vs 14.9% Doce->Rad).
 
 
 
@@ -1107,6 +1106,7 @@ gg_swim_cast_dx_site
 
 ## Todo list
 
+- Add clinical Gleason score to diagnosis table with a footnote.
 - Trim the existing report content (R1.5c)
 - 
 
