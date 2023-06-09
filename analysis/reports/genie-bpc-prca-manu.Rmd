@@ -99,11 +99,13 @@ dft_pt_baseline_sub <- dft_pt %>%
     `Ethnicity` = format_ptlevel_naaccr_ethnicity_code(
       naaccr_ethnicity_code
     )) %>%
-  select(record_id, 
-         Institution = institution,
-         `Race (primary)`,
-         `Ethnicity`,
-         birth_year)
+  select(
+    record_id, 
+    Institution = institution,
+    `Race (primary)`,
+    `Ethnicity`,
+    birth_year
+  )
 
 
 dft_ca_ind_baseline_sub <- dft_ca_ind %>%
@@ -209,9 +211,13 @@ dft_demo %<>%
 
 ### *R1.1a: Characteristics at dx
 
-For most analyses, especially survival, the timing of observations is critical.  Here we have separated baseline characteristics (Table R1.1) and characteristics which could represent a first post-baseline observation (Table R1.2).  After speaking with Jennifer Hoppe at AACR, my understanding is that for all prostate specific variables in the cancer diagnosis dataset, curators were instructed to curate from time of diagnosis through completion of surgeries in the first course of treatment.  Therefore, those variables are in Table R1.2 unless we can confirm they were exclusively measured at baseline.
+For most analyses, especially survival, the timing of observations is critical.  Here we have separated characteristics at diagnosis (Table R1.1), characteristics at sequencing, and characteristics which could represent a first post-baseline observation (Table R1.3). 
 
-For Testosterone and PSA, an arbitrary choice was made to limit observations to those from 180 days before to 30 days after diagnosis of prostate cancer.  Notably this leaves the majority of the cohort unobserved at baseline on these variables.  See appendix for unit conversion assumptions.
+Notes:
+
+- For PSA, an arbitrary choice was made to limit observations to those from 180 days before to 30 days after diagnosis of prostate cancer.  Notably this leaves the majority of the cohort unobserved at baseline on these variables.  See appendix for unit conversion assumptions.
+- Year of diagnosis is approximate.  It is estimated from birth year and interval to diagnosis, so it could be off by one year in either direction for any particular subject.  All years in the report suffer from this problem.
+
 
 
 ```{r, tab_r1_1a, include = T}
@@ -226,7 +232,7 @@ dft_demo %>%
   )
 ```
 
-### *R1.1b: Characteristics at dx by site
+### *R1.1b: Char. at dx by site
 
 Observations:
 
@@ -306,7 +312,7 @@ dft_char_seq %<>%
 
 # Pull in some additional variables from other datasets for time calcs:
 dft_char_seq <- dft_pt %>%
-  select(record_id, birth_year) %>%
+  select(record_id, birth_year, institution) %>%
   left_join(
     dft_char_seq,
     .,
@@ -325,6 +331,7 @@ dft_char_seq %<>%
   ) %>% 
   select(
     record_id,
+    Institution = institution,
     `Year of sequencing` = seq_year,
     `Dx to seq. (years)` = dx_cpt_rep_yrs,
     `Distant metastasis at seq.` = dmet_at_seq,
@@ -334,7 +341,22 @@ dft_char_seq %<>%
 
 ```
 
-### *R1.2: Characteristics at sequencing
+### *R1.2a: Characteristics at sequencing
+
+The following table displays cohort characteristics at the time of sequencing.  The year of sequencing is approximate (could be off by one year in either direction).
+
+```{r, output_char_at_seq, include = T}
+dft_char_seq %>%
+  select(-c(record_id, Institution)) %>%
+  gtsummary::tbl_summary(
+    data = .,
+    digits = list(
+      `Year of sequencing` ~ 0
+    )
+  )
+```
+
+### *R1.2b: Char. at seq. by site
 
 The following table displays cohort characteristics at the time of sequencing.  The year of sequencing is approximate (could be off by one year in either direction).
 
@@ -345,9 +367,13 @@ dft_char_seq %>%
     data = .,
     digits = list(
       `Year of sequencing` ~ 0
-    )
+    ),
+    by = "Institution"
   )
 ```
+
+**Observation:** DFCI has more early stage patients, and a lower median time to sequencing.  This gives me the impression that they may tend to sequence patients early in disease progression.
+
 
 
 
@@ -419,6 +445,14 @@ dft_post_baseline %<>%
     by = "record_id"
   )
 
+dft_post_baseline %<>%
+  mutate(
+    first_cast_det = forcats::fct_na_value_to_level(
+      f = first_cast_det, 
+      level = "Zero med onc notes"
+    )
+  )
+
 dfp_post_baseline <- dft_post_baseline %>%
   select(
     record_id,
@@ -429,6 +463,9 @@ dfp_post_baseline <- dft_post_baseline %>%
     `Clinical Gleason score` = clin_gleason,
     `Castration status (first)` = first_cast_det,
   )
+
+dfp_post_baseline %<>%
+  mutate()
   
 
 ```
@@ -570,7 +607,7 @@ dfp_obs_count <- dft_count_all %>%
     `PET or PET-CT` = n_scan_pet_or_pet_ct,
     `Total scans` = n_scan_total
   ) %>% 
-  gtsummary::tbl_summary(data = .) %>%
+  gtsummary::tbl_summary(data = ., digits = everything() ~ 0) %>%
   modify_header(
     label = '**Observation Type**'
   )
@@ -606,7 +643,7 @@ This is a sunburst plot, which shows the regimen sequences used by participants 
 
 This is an **interactive plot**, so you can mouse over each sector to reveal the drugs represented.
 
-*Credit:* MSK stats team for pioneering the use of these plots for drug regimens - I like them!
+*Credit:* MSK stats team for pioneering the use of these plots for drug regimens.
 
 ```{r, include = T}
 js_full_sun
@@ -1068,7 +1105,10 @@ gg_swim_cast_dx_site
 
 
 
+## Todo list
 
+- Trim the existing report content (R1.5c)
+- 
 
 
 
@@ -1097,12 +1137,52 @@ Testosterone and PSA were recorded under a number of units.  We assumed the foll
 
 ## Problems/Concerns
 
+### *(Kehl) CRPC/HRPC never declared
 
-### Todo
+A point from Ken Kehl on 8 May 2023:  For people who were never declared as CRPC or HSPC may never have seen a medical oncologist.  Can we look at stage or subsequent development of distant metastasis to see if that's the case?
 
-- Redo genomic analyses started by Irbaz.
-- Basic survival analyses (starting with OS).
+The following table shows stage at diagnosis for those who were never declared as hormone sensitive or castrate resistant.  This includes those with zero medical oncologist notes:
 
+```{r}
+vec_never_declared <- dfp_post_baseline %>%
+  filter(
+    `Castration status (first)` %in% c(
+      "Never stated in Impression/Plan",
+      "Zero med onc notes"
+    ) 
+  ) %>%
+  pull(record_id)
+```
+
+
+```{r, include = T}
+dft_ca_ind %>% 
+  filter(record_id %in% vec_never_declared) %>%
+  tabyl(stage_dx) %>%
+  select(-valid_percent) %>%
+  filter(!is.na(stage_dx)) %>%
+  rename(proportion = percent)
+```
+
+**Observation:** There is a lower proportion of stage IV participants in this group compared with the overall cohort (21% vs 38%).  However, there are still a large number of participants with late stage disease at diagnosis which were not designated HSPC/CRPC.
+
+The following table shows whether a distant metastasis was ever noted among that same participant group:
+
+```{r, include = T}
+dft_dmet_block %>%
+  filter(record_id %in% vec_never_declared) %>%
+  group_by(record_id) %>%
+  summarize(
+    dmet_noted = case_when(
+      any(dmet_status %in% "Distant Metastasis") ~ "Yes",
+      T ~ "No"
+    ),
+    .groups = "drop"
+  ) %>%
+  count(dmet_noted)
+```
+
+**Observation:**  Almost all dmets noted come from distant metastasis noted at diagnosis (stage IV = 96, dmets at any time = 103).
 
 ### Missing marker units on some results
 
