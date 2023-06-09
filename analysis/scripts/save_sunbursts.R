@@ -5,6 +5,8 @@ library(dplyr)
 library(stringr)
 library(genieBPC)
 library(magrittr)
+library(glue)
+library(cli)
 
 purrr::walk(.x = here("R", dir(here("R"))),
             .f = source)
@@ -95,8 +97,52 @@ saveRDS(file = here("data", "sunburst_plots", "crpc.rds"),
 dft_drug <- readr::read_csv(here("data", "drug.csv"))
 
 # Using my drugs dataset first just to get a rough idea on the right answers:
-dft_abi_enza_doce <- dft_drug %>% 
+# dft_abi_enza_doce <- 
+
+get_limited_drug_data <- function(drug_dat, drug_str, warn = T, factorize = T) {
+  drug_dat %<>%
+    mutate(drug = str_replace(drug, "\\(.*\\)", ""))
+  
+  if (any(!(drug_str %in% unique(drug_dat$drug))) & warn) {
+    unobserved_drugs <- drug_str[!(drug_str %in% unique(drug_dat$drug))]
+    cli::cli_alert_danger(
+      glue(
+        "Some inputs not found in drug_dat: {paste(unobserved_drugs, collapse = ', ')}"
+      )
+    )
+  }
+  
+  drug_dat %<>%
+    filter(drug %in% drug_str) %>%
+    group_by(record_id, ca_seq, regimen_number) %>%
+    summarize(
+      regimen_drugs = paste0(sort(drug), collapse = ", "),
+      .groups = "drop"
+    ) 
+  
+  if (factorize) {
+    drug_dat %<>% mutate(regimen_drugs = factor(regimen_drugs)) 
+  }
+  
+  drug_dat %<>% arrange(record_id, ca_seq, regimen_number) 
+  
+  return(drug_dat)
+  
+}
+
+dft_abi_enza_doce <- get_limited_drug_data(
+  dft_drug, 
+  drug_str = c(
+    "Abiraterone Acetate", 
+    "Docetaxel",
+    "Enzalutamide"
+  )
+  
+)
+
+dft_drug %>% 
   filter(str_detect(drug, "(Abiraterone|Enzalutamide|Docetaxel)")) %>%
+  pull(drug) %>% unique
   group_by(record_id, ca_seq, regimen_number) %>%
   summarize(
     reg_cat = case_when(
