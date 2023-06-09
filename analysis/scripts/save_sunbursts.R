@@ -31,10 +31,7 @@ dft_trt_hist_full <- dft_trt_hist_full$treatment_history
 
 js_sun_full <- plot_regimen_sunburst(
   dft_trt_hist_full, 
-  pal = (viridisLite::magma(
-    n = sum(choose(3, 1:3)),
-    begin = 0.1, end = 0.9,
-  ))
+  seed = 98,
 )
 saveRDS(file = here("data", "sunburst_plots", "full.rds"),
         object = js_sun_full)
@@ -77,10 +74,7 @@ dft_trt_hist_crpc <- dft_trt_hist_crpc$treatment_history
 
 js_sun_crpc <- plot_regimen_sunburst(
   dft_trt_hist_crpc, 
-  pal = (viridisLite::inferno(
-    n = sum(choose(3, 1:3)),
-    begin = 0.1, end = 0.9,
-  ))
+  seed = 029348,
 )
 
 saveRDS(file = here("data", "sunburst_plots", "crpc.rds"),
@@ -117,9 +111,9 @@ dft_abi_enza_doce_trt_hist <- make_sunburst_input(
 
 js_sun_aed <- plot_regimen_sunburst(
   dft_abi_enza_doce_trt_hist, 
-  pal = (viridisLite::mako(
+  pal = (viridisLite::plasma(
     n = sum(choose(3, 1:3)),
-    begin = 0.1, end = 0.9,
+    begin = 01, end = 0.7,
   ))
 )
 saveRDS(file = here("data", "sunburst_plots", "abi_enza_doce.rds"),
@@ -139,9 +133,9 @@ dft_abi_enza_doce_trt_hist_no_dupes <- make_sunburst_input(
 js_sun_aed_no_dupes <- plot_regimen_sunburst(
   dft_abi_enza_doce_trt_hist_no_dupes, 
   seed = 94,
-  pal = (viridisLite::plasma(
+  pal = (viridisLite::mako(
     n = sum(choose(3, 1:3)),
-    begin = 0.1, end = 0.9,
+    begin = 0.1, end = 0.7,
   ))
 )
 saveRDS(
@@ -176,9 +170,9 @@ dft_rad_doce_hist_no_dupes <- make_sunburst_input(
 js_sun_rad_doce_no_dupes <- plot_regimen_sunburst(
   dft_rad_doce_hist_no_dupes,
   seed = 94,
-  pal = (viridisLite::inferno(
+  pal = (viridisLite::mako(
     n = sum(choose(2, 1:2)),
-    begin = 0.3, end = 0.7,
+    begin = 0.1, end = 0.7,
   ))
 )
 

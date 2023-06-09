@@ -773,9 +773,13 @@ js_aed <- readRDS(
 js_aed_no_dupes <- readRDS(
   here("data", "sunburst_plots","abi_enza_doce_no_dupes.rds")
 )
+
+js_rad_doce_no_dupes <- readRDS(
+  here("data", "sunburst_plots","radium_doce_no_dupes.rds")
+)
 ```
 
-### R1.5e Abi/Enza and Docetaxel (all regimens)
+### *R1.5e Drugs: Abi, Enza, Doce (all regimens)
 
 Irbaz Riaz expressed interest the order of drugs used for participants who used either Abiraterone/Enzalutamide or Docetaxel. The cohort we examine here is anyone who used any of these drugs.  The two categories are:
 
@@ -795,7 +799,7 @@ js_aed
 - The most frequent second line therapy after Abi/Enza is doing another round of Abi/Enza.
 
 
-### R1.5f Abi/Enza and Docetaxel (repeats removed)
+### *R1.5f Drugs: Abi, Enza, Doce (repeats removed)
 
 This plot is the same as the previous, except that regimens with repeat enza/abi/doce information are removed.  
 
@@ -805,6 +809,27 @@ For example, if a participant's regimen order was "Abi/Enza, Abi/Enza, Docetaxel
 ```{r, include = T}
 js_aed_no_dupes
 ```
+
+
+
+
+
+
+
+
+### *R1.5g Drugs: Radium, Docetaxel (repeats removed)
+
+This plot uses the "repeats removed" format for drug regimens, see R1.5f for more information.
+
+
+```{r, include = T}
+js_rad_doce_no_dupes 
+
+```
+
+
+
+
 
 
 
