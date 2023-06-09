@@ -1107,9 +1107,8 @@ gg_swim_cast_dx_site
 
 - Add clinical Gleason score to diagnosis table with a footnote.
 - Trim the existing report content (R1.5c)
-- 
-
-
+- Filter genes with OncoKB for relevance.
+- Report on basic genomic information
 
 ## Appendices
 
@@ -1138,7 +1137,7 @@ Testosterone and PSA were recorded under a number of units.  We assumed the foll
 
 ### *(Kehl) CRPC/HRPC never declared
 
-A point from Ken Kehl on 8 May 2023:  For people who were never declared as CRPC or HSPC may never have seen a medical oncologist.  Can we look at stage or subsequent development of distant metastasis to see if that's the case?
+A point from Ken Kehl and others on 8 May 2023:  For people who were never declared as CRPC or HSPC may never have seen a medical oncologist.  Can we look at stage or subsequent development of distant metastasis to see if that's the case?
 
 The following table shows stage at diagnosis for those who were never declared as hormone sensitive or castrate resistant.  This includes those with zero medical oncologist notes:
 

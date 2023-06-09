@@ -5,6 +5,6 @@ library(magrittr)
 library(here)
 
 synLogin()
-synapser::File(here("analysis", "reports", "main.html"),
+synapser::File(here("analysis", "report", "genie-bpc-prca-manu.html"),
                parent = output_prca_synid) %>%
   synStore()
