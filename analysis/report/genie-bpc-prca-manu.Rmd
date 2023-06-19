@@ -556,8 +556,43 @@ dft_count_quantiles <- dft_count_long %>%
   select(type_f, res) %>%
   unnest(res) 
 
+# Really like this plot but nobody else in my group will:
+#
+# gg_count_ecdf_2 <- ggplot(data = dft_count_long,
+#          aes(x = n)) + 
+#   stat_ecdf(aes(color = type_f)) + 
+#   geom_label_repel(data = dft_count_quantiles,
+#              # yes, this is screwed up:
+#              aes(x = y, y = n, label = y, color = type_f),
+#              hjust = 0, nudge_x = 50, size = 2.5,
+#              direction = "x",
+#              segment.size = 0.15,
+#              show_guide = F
+#             ) + 
+#   theme_bw() +
+# #  facet_wrap(vars(type_f), scales = "free", nrow = 2) + 
+#   scale_y_continuous(
+#     name = "Cohort fraction",
+#     breaks = c(0, .5, 1),
+#     labels = paste0(c(0, .5, 1)*100, "%")
+#   ) + 
+#   theme(
+#     strip.text = element_text(hjust = 0),
+#     legend.position = "bottom"
+#   ) +
+#   guides(
+#     color = guide_legend(
+#       title = NULL,
+#       override.aes = aes(label = "", size = 5, shape = 15)
+#     ),
+#   ) + 
+#   scale_color_manual(
+#     values = c('#EE7733', '#0077BB', '#33BBEE', '#EE3377', '#CC3311', '#009988', '#BBBBBB')
+#   )
+# 
+# gg_count_ecdf_2
 
-gg_count_ecdf <- ggplot(data = dft_count_long,
+ gg_count_ecdf <- ggplot(data = dft_count_long,
          aes(x = n)) + 
   stat_ecdf(color = '#4477AA') + 
   geom_text_repel(data = dft_count_quantiles,
@@ -579,109 +614,15 @@ gg_count_ecdf <- ggplot(data = dft_count_long,
   )
 
 
-
-#' @param dat A dataframe with required columns type_f and n.
-#' @param hist_col Color of the histogram bars.
-#' @param quantiles_to_plot Quantiles to put vertical bars under.
-#' @param pal_quantiles Colors of the quantile vertical bars.
-#' @param x_lab Label of the X axis (default is "Number of Measurements").
-#' @param y_lab Label of the Y axis (default is "Subjects").
-#' @param title Label for the title.  Defaults to quantile label for default quantiles.  If no title is desired, use `title = NULL`
-#' @param y_bottom_exp Expansion of the bottom of the Y axis (multiplicative).
-plot_count_hist_quan <- function(
-  dat, 
-  hist_col = "gray50", 
-  quantiles_to_plot = c(0.25, 0.5, 0.75),
-  quantile_names = c("1st quartile", "Median", "3rd quartile"),
-  pal_quantiles = c('#0077bb', '#ee7733', '#ee3377'),
-  plot_title = "default",
-  x_lab = "Number of Measurements",
-  y_lab = "Subjects",
-  y_bottom_exp = 0.05,
-  plot_title_size = 11
-) {
-  
-  if (length(quantiles_to_plot) > length(pal_quantiles)) {
-    cli::cli_abort("Length of quantiles_to_plot exceeds pal_quantiles.")
-  } else if (length(pal_quantiles) > length(quantiles_to_plot)) {
-    pal_quantiles <- pal_quantiles[1:length(quantiles_to_plot)]
-  }
-  
-  if (plot_title %in% "default") {
-    plot_title <- tibble(
-      name = quantile_names, 
-      val = pal_quantiles
-    ) %>% 
-      mutate(
-        name = glue("<span style='color:{val}'>{name}</span>")
-      ) %>%
-      pull(name) %>%
-      paste(collapse = ", ") %>%
-      paste0("Histograms annotated with ", ., ".")
-  }
+gg_count_hist_quan <- plot_count_hist_quan(
+  dat = dft_count_long,
+)
   
   
-  
-  gg <- ggplot(data = dat,
-               aes(x = n)) + 
-    # this part does the quantile summaries
-    stat_summary(
-      geom = "vline",
-      orientation = "y",
-      # y is a required aesthetic, so use a dummy value
-      aes(y = 1, xintercept = after_stat(x)),
-      fun = function(x) {
-        quantile(x, probs = c(0.25, 0.5, 0.75))
-      },
-      alpha = 1, linewidth = 0.5,
-      color = rep(
-        pal_quantiles,
-        times = length(unique(dat$type_f))
-      )
-    ) + 
-    
-    geom_histogram(binwidth = 1, color = hist_col, fill = hist_col) + 
-    theme_bw() +
-    labs(title = plot_title) + 
-    facet_wrap(vars(type_f), scales = "free", nrow = 2) + 
-    theme(
-      strip.text = element_text(hjust =0),
-      panel.grid.minor.x = element_blank(),
-      axis.title.y = element_markdown(angle = 0, vjust = 0.5),
-      plot.title = element_markdown(size = plot_title_size),
-      plot.title.position = "plot"
-    ) + 
-    scale_x_continuous(
-      name = x_lab,
-      expand = expansion(add = 0, mult = 0),
-      n.breaks = 6
-    ) +
-    scale_y_continuous(
-      name = y_lab,
-      expand = expansion(add = c(0,0), mult = c(y_bottom_exp,0.05))
-    ) 
-  return(gg)
-  
-}
-
-plot_count_hist_quan(dat = dft_count_long)
-
-
-
-tibble(
-  name = c("1st quartile", "Median", "3rd quartile"), 
-  val = c('#0077bb', '#ee7733', '#ee3377')
-) %>% 
-  mutate(
-    name = glue("<span style='color:{val}'>{name}</span>")
-  ) %>%
-  pull(name) %>%
-  paste(collapse = ", ") %>%
-  paste("Histograms with", ., "shown.")
 ```
 
 
-### R1.4a Observation counts (eCDF figure)
+### R1.4a Observation counts (eCDF)
 
 The follow plot shows the empirical cumulative distirbution function for the number of observations per subject.  In each plot, three numbers are labelled:  the 25th percentile, the median and the 75th percentile.  
 
@@ -692,6 +633,11 @@ gg_count_ecdf
 ```
 
 
+### R1.4b Observation counts (histogram)
+
+```{r, include = T}
+gg_count_hist_quan
+```
 
 
 
@@ -714,7 +660,7 @@ dfp_obs_count <- dft_count_all %>%
 ```
 
 
-### R1.4b Observation counts (table)
+### R1.4c Observation counts (table)
 
 This is a simpler presentation of the same three statistics as the previous figure:
 
