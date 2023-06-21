@@ -266,7 +266,7 @@ dft_demo %>%
 
 ```{r, create_seq_data_table}
 # Table of characteristics at sequencing.
-dft_char_seq <- get_first_cpt(dft_ca_ind)
+dft_char_seq <- get_first_cpt(dft_ca_ind, dft_cpt)
 
 # Figure out if the participants were castrate resistant at seq time:
 dft_cast_block_seq <- make_cast_status_block(
