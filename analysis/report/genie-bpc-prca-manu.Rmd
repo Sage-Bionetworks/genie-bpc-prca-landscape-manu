@@ -962,6 +962,7 @@ dft_cast_block <- make_cast_status_block(
 
 dft_event <- make_event_df(
   ca_ind_dat = dft_ca_ind,
+  cpt_dat = dft_cpt,
   cast_block_dat = dft_cast_block
 )
 
