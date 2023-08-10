@@ -9,7 +9,7 @@ ICNA="/data/genomic/cna_long_selected.txt"
 OCNA="/data/genomic/cna_long_selected_onco.txt"
 
 IFUS="/data-raw/genomic/data_fusions.txt"
-OFUS="data/genomic/fus_onco.txt"
+OFUS="/data/genomic/fus_onco.txt"
 
 # Three environment variables needed:
 # PROJ_ROOT - the location of the R project file.
@@ -28,4 +28,4 @@ python ${ONCO_ANNO_LOC}/MafAnnotator.py -i "${PROJ_ROOT}${IMAF}" -o "${PROJ_ROOT
 # The -z flag for CNA gives us the Gain/Loss data.  This may have limited value,
 #   and it's addressed in the help file for the script.
 python ${ONCO_ANNO_LOC}/CnaAnnotator.py -i "${PROJ_ROOT}${ICNA}" -o "${PROJ_ROOT}${OCNA}" -b ${ONCOKB_KEY} -t "PROSTATE" -z
-python ${ONCO_ANNO_LOC}/FusionAnnotator.py -i "${PROJ_ROOT}${IFUS}" -o "{PROJ_ROOT}${OFUS}" -b ${ONCOKB_KEY} -t "PROSTATE" 
+python ${ONCO_ANNO_LOC}/FusionAnnotator.py -i "${PROJ_ROOT}${IFUS}" -o "${PROJ_ROOT}${OFUS}" -b ${ONCOKB_KEY} -t "PROSTATE" 
