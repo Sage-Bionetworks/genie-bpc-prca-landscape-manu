@@ -1,5 +1,6 @@
 library(cli)
 library(readr)
+library(yaml)
 library(here)
 library(dplyr)
 library(tidyr)

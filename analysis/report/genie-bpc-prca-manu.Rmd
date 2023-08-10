@@ -210,7 +210,7 @@ dft_demo %<>%
 
 ## Content
 
-### *R1.1a: Characteristics at dx
+### R1.1a: Characteristics at dx
 
 For most analyses, especially survival, the timing of observations is critical.  Here we have separated characteristics at diagnosis (Table R1.1), characteristics at sequencing, and characteristics which could represent a first post-baseline observation (Table R1.3). 
 
@@ -233,7 +233,7 @@ dft_demo %>%
   )
 ```
 
-### *R1.1b: Char. at dx by site
+### R1.1b: Char. at dx by site
 
 Observations:
 
@@ -342,7 +342,7 @@ dft_char_seq %<>%
 
 ```
 
-### *R1.2a: Characteristics at sequencing
+### R1.2a: Characteristics at sequencing
 
 The following table displays cohort characteristics at the time of sequencing.  The year of sequencing is approximate (could be off by one year in either direction).
 
@@ -357,7 +357,7 @@ dft_char_seq %>%
   )
 ```
 
-### *R1.2b: Char. at seq. by site
+### R1.2b: Char. at seq. by site
 
 The following table displays cohort characteristics at the time of sequencing.  The year of sequencing is approximate (could be off by one year in either direction).
 
@@ -556,41 +556,6 @@ dft_count_quantiles <- dft_count_long %>%
   select(type_f, res) %>%
   unnest(res) 
 
-# Really like this plot but nobody else in my group will:
-#
-# gg_count_ecdf_2 <- ggplot(data = dft_count_long,
-#          aes(x = n)) + 
-#   stat_ecdf(aes(color = type_f)) + 
-#   geom_label_repel(data = dft_count_quantiles,
-#              # yes, this is screwed up:
-#              aes(x = y, y = n, label = y, color = type_f),
-#              hjust = 0, nudge_x = 50, size = 2.5,
-#              direction = "x",
-#              segment.size = 0.15,
-#              show_guide = F
-#             ) + 
-#   theme_bw() +
-# #  facet_wrap(vars(type_f), scales = "free", nrow = 2) + 
-#   scale_y_continuous(
-#     name = "Cohort fraction",
-#     breaks = c(0, .5, 1),
-#     labels = paste0(c(0, .5, 1)*100, "%")
-#   ) + 
-#   theme(
-#     strip.text = element_text(hjust = 0),
-#     legend.position = "bottom"
-#   ) +
-#   guides(
-#     color = guide_legend(
-#       title = NULL,
-#       override.aes = aes(label = "", size = 5, shape = 15)
-#     ),
-#   ) + 
-#   scale_color_manual(
-#     values = c('#EE7733', '#0077BB', '#33BBEE', '#EE3377', '#CC3311', '#009988', '#BBBBBB')
-#   )
-# 
-# gg_count_ecdf_2
 
  gg_count_ecdf <- ggplot(data = dft_count_long,
          aes(x = n)) + 
@@ -859,7 +824,7 @@ gg_top_drug_comb <- cowplot::plot_grid(
     
 ```
 
-### *R1.5d Drugs used (All + post-CRPC)
+### R1.5d Drugs used (All + post-CRPC)
 
 Proportion of the cohort ever exposed to each agent, limited to the top 10 most used.  Top figure shows the entire cohort, bottom figure restricts to drugs started after a CRPC med onc note.  Participants who never had a CRPC note are obviously excluded.
 
@@ -894,7 +859,7 @@ js_rad_doce_no_dupes <- readRDS(
 )
 ```
 
-### *R1.5e Drugs: Abi, Enza, Doce (all regimens)
+### R1.5e Drugs: Abi, Enza, Doce (all regimens)
 
 The group was interested in the order of drugs used for participants who used Abiraterone, Enzalutamide or Docetaxel. The cohort we examine here is anyone who used any of these drugs.  
 
@@ -910,7 +875,7 @@ js_aed
 - Abiraterone Acetate seems to be the most common first line therapy, but all three are used frequently.
 
 
-### *R1.5f Drugs: Abi, Enza, Doce (repeats removed)
+### R1.5f Drugs: Abi, Enza, Doce (repeats removed)
 
 This plot is the same as the previous, except that regimens with repeat enza/abi/doce information are removed.  
 
@@ -928,7 +893,7 @@ js_aed_no_dupes
 
 
 
-### *R1.5g Drugs: Radium, Docetaxel (repeats removed)
+### R1.5g Drugs: Radium, Docetaxel (repeats removed)
 
 This plot uses the "repeats removed" format for drug regimens, see R1.5f for more information.  In this our cohort is formed by participants who used either Radium 223 and Docetaxel at any point in their monitoring.
 
@@ -1226,7 +1191,7 @@ Testosterone and PSA were recorded under a number of units.  We assumed the foll
 
 ## Problems/Concerns
 
-### *(Kehl) CRPC/HRPC never declared
+### (Kehl) CRPC/HRPC never declared
 
 A point from Ken Kehl and others on 8 May 2023:  For people who were never declared as CRPC or HSPC may never have seen a medical oncologist.  Can we look at stage or subsequent development of distant metastasis to see if that's the case?
 

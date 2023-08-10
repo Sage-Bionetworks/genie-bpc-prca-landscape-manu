@@ -12,6 +12,7 @@ purrr::walk(.x = fs::dir_ls(here('R')), .f = source)
 # Clinical #
 ############
 source(here('analysis', 'script', 'get_raw_data.R'))
+source(here('analysis', 'script', 'process_clinical_data.R'))
 source(here('analysis', 'script', 'create_drug_dat.R'))
 source(here('analysis', 'script', 'save_sunbursts.R'))
 
