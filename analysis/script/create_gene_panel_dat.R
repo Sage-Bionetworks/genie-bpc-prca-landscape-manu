@@ -17,14 +17,10 @@ gp_all <- purrr::map_dfr(
 # for consistency with clinical data (and I like the name better)
 gp_all %<>% rename(cpt_seq_assay_id = stable_id)
 
-saveRDS(
-  object = gp_all,
-  file = here('data', 'genomic', 'gene_panel_all.rds')
-)
 
 
 
-gp_all %>% glimpse
+
 
 
 # Merge in the sample data.
@@ -48,6 +44,10 @@ if (!chk_gp_files) {
   cli_abort("At least one gene panel found in the CPT data with no corresponding metadata file")
 }
 
+
+
+
+
 # get the number of genes in each panel, merge that in to the summary dataframe.
 gp_sum <- gp_all %>%
   group_by(cpt_seq_assay_id) %>%
@@ -61,17 +61,13 @@ gp_sum <- gp_all %>%
     .,
     by = "cpt_seq_assay_id"
   )
-
 gp_sum %<>% 
   arrange(desc(n_pts)) %>%
   mutate(
     cpt_seq_assay_id = forcats::fct_inorder(cpt_seq_assay_id)
   )
   
-saveRDS(
-  object = gp_sum,
-  file = here('data', 'genomic', 'gene_panel_sum.rds')
-)
+
 
 
 
@@ -81,11 +77,39 @@ gp_by_gene <- gp_all %>%
   summarize(
     n_panels = length(unique(cpt_seq_assay_id)),
     .groups = "drop"
+  ) 
+
+# Find the proportion of samples which include testing for each gene.
+gp_by_gene_samp_counts <- dft_cpt %>% 
+  select(cpt_genie_sample_id, cpt_seq_assay_id) %>%
+  mutate(n_samples = n()) %>%
+  left_join(
+    .,
+    select(gp_all, cpt_seq_assay_id, hugo),
+    by = "cpt_seq_assay_id",
+    relationship = "many-to-many"
   ) %>%
+  group_by(hugo) %>%
+  summarize(
+    num_samp_tested = n(),
+    prop_samp_tested = n()/first(n_samples),
+    .groups = "drop"
+  )
+
+gp_by_gene <- left_join(gp_by_gene, gp_by_gene_samp_counts, by = "hugo")
+
+gp_by_gene %<>%
   arrange(desc(n_panels), hugo) %>%
   mutate(
     hugo = forcats::fct_inorder(hugo)
   )
+
+
+
+
+
+
+
 
 # apply the factor levels above to the "all" data:
 gp_all %<>%

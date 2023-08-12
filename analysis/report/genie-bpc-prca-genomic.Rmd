@@ -1,5 +1,5 @@
 ---
-title: "BPC Prostate - Genomic"
+title: "BPC Prostate - Genomic descriptions"
 author: "Alex Paynter"
 date: "`r Sys.Date()`"
 output: 
@@ -92,6 +92,7 @@ gg_panel_coverage <- ggplot(
     axis.text.x = element_blank(),
     axis.ticks.x = element_blank(),
     axis.line.x = element_blank(),
+    axis.line.y = element_blank(),
     plot.title.position = "plot"
   )
 ```
@@ -100,11 +101,98 @@ gg_panel_coverage <- ggplot(
 
 ### R2.1 Panel coverage
 
-The following figures shows the coverage of
+Heatmap of gene panel coverage.
 
 ```{r, include = T, fig.width = 10, fig.height = 5}
 gg_panel_coverage
+# Technically this works but it takes too long:
+# plotly::ggplotly(gg_panel_coverage)
 ```
+
+Observations:
+
+- Panels vary in size considerably.  Some samples were tested with panels that only cover about 50 genes.
+- Overlap between the panels is imperfect.
+- Early hints that very few people have more than one test in this dataset are evident in the similar patient and sample numbers for most panels.  We will address this directly later on.
+- Currently this figure is order by number of patients on the Y axis.  It might be more informative to cluster the axis by similarity.  Some obvious groups of panels jump out to me:
+  - {DFCI-ONCOPANEL-3, DFCI-ONCOPANEL-3.1, UNH-555-*}
+  - {MSK_IMPACT468, DFCI-ONCOPANEL-2, VICC-01-T7}
+  - The two UHN panels with few genes covered. 
+
+
+```{r}
+
+# getting the one point we need to annotate:
+# ecdf(dft_gp_by_gene$num_samp_tested)(800)
+# result: 0.71837...
+
+# ggplot(
+#   dft_gp_by_gene,
+#   aes(x = num_samp_tested)
+# ) + 
+#   stat_ecdf() + 
+#   scale_y_continuous(labels = scales::percent,
+#                      expand = expansion(add = c(0,0.01), mult = 0)) + 
+#   scale_x_continuous(n.breaks = 8,  
+#                     expand = expansion(add = c(0,0), mult = c(0,0.01))) + 
+#   labs(x = "Number of samples where gene was covered",
+#        y = "Proportion of genes") +
+#   annotate(geom = "point",
+#            x = 800, y = 0.718, color = '#bb5566', shape = 4, size = 2, stroke = 1) +
+#   annotate(geom = "richtext",
+#            x = 750, y = 0.65, color = '#bb5566', size = 3,
+#            hjust = 0, vjust = 1,
+#            label = "Interpretation: <br> 71.8% of genes were tested <br> in no more than 800 samples.") +
+#   annotate(geom = "point",
+#            x = 800, y = 0.718, color = '#bb5566', shape = 4, size = 2, stroke = 1) +
+#   annotate(geom = "richtext",
+#            x = 750, y = 0.65, color = '#bb5566', size = 3,
+#            hjust = 0, vjust = 1,
+#            label = "Interpretation: <br> 71.8% of genes were tested <br> in no more than 800 samples.") +
+#   theme_classic()
+
+gg_gene_sample_hist <- ggplot(
+  dft_gp_by_gene,
+  aes(x = prop_samp_tested)
+) +
+  geom_histogram(binwidth = 0.1, center = 0.05, fill = '#6699cc') +
+  theme_classic() + 
+  labs(x = "Proportion of samples gene tested in",
+       y = "Number of genes") + 
+  scale_y_continuous(expand = expansion(add = 0, mult = c(0,0.05)),
+                     n.breaks= 8) +
+  scale_x_continuous(
+    labels = scales::percent,
+    expand = expansion(add = c(0,0), mult = c(0,0.01)),
+    breaks = seq(0,1, by = 0.1))
+
+# Quick computation for the observations below:
+n_genes_total_coverage <- dft_gp_by_gene %>% filter(prop_samp_tested >= 0.999) %>% nrow()
+n_genes_90_cov <- dft_gp_by_gene %>% filter(prop_samp_tested >= 0.899) %>% nrow()
+n_genes_70_cov <- dft_gp_by_gene %>% filter(prop_samp_tested >= 0.699) %>% nrow()
+dft_gp_by_gene %>% filter(prop_samp_tested < 0.5) %>% nrow()
+
+```
+
+### R2.2 Gene test coverage over samples
+
+There are `r nrow(dft_gp_by_gene$hugo)` genes covered by at least one panel in this dataset.  This is a histogram of genes, showing the number covering each decile of sample proportion.
+
+**Example interpretation:** The bar between 90% and 100% shows about 200 genes.  This means that approximately 200 genes were tested in at least 90% of panels.  Likewise, there were nearly 300 genes which were tested in under 10% of samples.
+
+```{r, include = T}
+gg_gene_sample_hist
+```
+
+Observations:
+
+- There are only `r n_genes_total_coverage` genes covered by every panel.  For our clinical analyses it might be better to include genes covered by **most** panels to gather a larger set.  Two natural cut points based on the graph above may be:
+  - Genes covered by at least 90% of panels: `r n_genes_90_cov`.
+  - Genes covered by at least 70% of panels: `r n_genes_70_cov`.
+  - Keep in mind that some of these will have too few positives to be used, further reducing the numbers.  We'll describe this in subsequent sections.
+- The majority of genes are covered by under 50% of samples.  I don't think there's a ton we can do in using these as prognostic/predictive variables with that level of missingness.
+  
+
 
 
 
