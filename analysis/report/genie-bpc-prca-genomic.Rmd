@@ -1,5 +1,5 @@
 ---
-title: "BPC Prostate - Genomic descriptions"
+title: "BPC Prostate - Genomic descriptives"
 author: "Alex Paynter"
 date: "`r Sys.Date()`"
 output: 
@@ -16,6 +16,7 @@ knitr::opts_chunk$set(echo = F, include = F,
                       warning = F, message = F,
                       fig.width = 7, fig.height = 5)
 k_dpi <- 150
+pal_pt_hc <- c("#004488","#ddaa33", "#bb5566")
 ```
 
 <style type="text/css">
@@ -38,6 +39,8 @@ purrr::walk(.x = fs::dir_ls(here('R')), .f = source) # also loads lots of packag
 ```{r, set_gtsummary_theme}
 theme_gtsummary_compact()
 theme_gtsummary_language("en", big.mark = "") # for now.
+
+
 ```
 
 
@@ -57,8 +60,116 @@ read_wrap_geno <- function(p) {
 dft_gp_all <- read_wrap_geno('gene_panel_all.rds')
 dft_gp_sum <- read_wrap_geno('gene_panel_sum.rds')
 dft_gp_by_gene <- read_wrap_geno('gene_panel_by_gene.rds')
+dft_onco_impact <- read_wrap_geno('oncokb_impact.rds')
+dft_alterations <- read_wrap_geno('oncokb_impact_by_gene.rds')
+
 
 ```
+
+
+## Content
+
+
+```{r}
+# Table explaining the sample type coding we'll use:
+dfp_sample_type_expl <- dft_cpt %>% 
+  group_by(sample_type) %>%
+  summarize(
+    num_sample = n(),
+    # Each group should have one unique sample_type_simple_f - but if not this will fail loudly in the table. 
+    coded_as = paste(unique(sample_type_simple_f)),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(num_sample))
+
+# pp = per person.
+dft_ngs_pp <- dft_cpt %>%
+  group_by(record_id) %>%
+  summarize(
+    All = n(),
+    Primary = sum(sample_type_simple_f %in% "Primary tumor"),
+    Metastatic = sum(sample_type_simple_f %in% "Metastatic")
+  ) 
+
+dft_ngs_pp_long <- dft_ngs_pp %>%
+  pivot_longer(
+    cols = -record_id,
+    names_to = "category",
+    values_to = "count"
+  ) %>%
+  mutate(
+    category = forcats::fct_inorder(category)
+  )
+
+gg_ngs_pp <- ggplot(
+  data = dft_ngs_pp_long,
+  aes(x = count, fill = category)
+) + 
+  geom_histogram(binwidth = 1, center = 0) +
+  theme_classic() + 
+  labs(x = "Number of tests",
+       y = "Participants") + 
+  scale_y_continuous(expand = expansion(add = 0, mult = c(0,0.05)),
+                     n.breaks= 8) +
+  scale_x_continuous(
+    breaks = 0:10,
+    expand = expansion(
+      add = c(0,0), 
+      mult = c(0,0.01)
+    )
+  ) + 
+  facet_wrap(vars(category)) +
+  theme(
+    strip.text = element_text(hjust = 0),
+    legend.position = "none"
+  ) + 
+  scale_fill_manual(
+    values = pal_pt_hc
+  )
+
+n_prim_met_pair <- dft_ngs_pp %>% 
+  filter(Primary >= 1 & Metastatic >= 1) %>%
+  nrow(.)
+
+n_gte_2_prim <- dft_ngs_pp %>% 
+  filter(Primary >= 2) %>%
+  nrow(.)
+
+n_gte_2_met <- dft_ngs_pp %>% 
+  filter(Metastatic >= 2) %>%
+  nrow(.)
+                            
+```
+
+
+### R2.1.1 NGS tests per person
+
+This table uses the "Specimen Sample Type" variable from the Cancer Panel Test dataset.  We simplified this slightly (`coded_as`) to avoid small categories of tumors:
+
+```{r, include = T}
+dfp_sample_type_expl %>%
+  huxtable(.) %>%
+  huxtable::set_align(value = "left") %>%
+  theme_compact(.)
+```
+
+The following plot shows histograms of the number of tests per participant.  This is repeated for all tests (Primary, Metastatic, Other) and separately for Primary and Metastatic tumors.
+
+```{r, include = T, fig.height = 3}
+gg_ngs_pp
+```
+
+Observations:
+
+- The overwhelming majority of participants have exactly one NGS test.
+- About 400 people have no primary tumor tests at all.
+- `r n_prim_met_pair` people have at least one primary and at least one metastatic tumor.
+- Only `r n_gte_2_prim` participants have more than one primary tumor test.
+- There are `r n_gte_2_met` with more than one metastatic test, overwhelmingly from MSK.
+
+
+
+
 
 
 ```{r}
@@ -73,9 +184,7 @@ dft_gp_all %<>%
   mutate(
     assay_lab = glue("{cpt_seq_assay_id} [{n_genes}] ({n_pts}, {n_samples})"),
     assay_lab = forcats::fct_inorder(assay_lab)
-  ) %>%
-  select(-n_pts, -n_samples, -n_genes)
-  
+  ) 
 
 gg_panel_coverage <- ggplot(
   data = dft_gp_all,
@@ -97,9 +206,8 @@ gg_panel_coverage <- ggplot(
   )
 ```
 
-## Content
 
-### R2.1 Panel coverage
+### R2.1.2a Panel coverage
 
 Heatmap of gene panel coverage.
 
@@ -111,9 +219,7 @@ gg_panel_coverage
 
 Observations:
 
-- Panels vary in size considerably.  Some samples were tested with panels that only cover about 50 genes.
-- Overlap between the panels is imperfect.
-- Early hints that very few people have more than one test in this dataset are evident in the similar patient and sample numbers for most panels.  We will address this directly later on.
+- Panels vary in size considerably (under 50 to over 500). 
 - Currently this figure is order by number of patients on the Y axis.  It might be more informative to cluster the axis by similarity.  Some obvious groups of panels jump out to me:
   - {DFCI-ONCOPANEL-3, DFCI-ONCOPANEL-3.1, UNH-555-*}
   - {MSK_IMPACT468, DFCI-ONCOPANEL-2, VICC-01-T7}
@@ -121,36 +227,6 @@ Observations:
 
 
 ```{r}
-
-# getting the one point we need to annotate:
-# ecdf(dft_gp_by_gene$num_samp_tested)(800)
-# result: 0.71837...
-
-# ggplot(
-#   dft_gp_by_gene,
-#   aes(x = num_samp_tested)
-# ) + 
-#   stat_ecdf() + 
-#   scale_y_continuous(labels = scales::percent,
-#                      expand = expansion(add = c(0,0.01), mult = 0)) + 
-#   scale_x_continuous(n.breaks = 8,  
-#                     expand = expansion(add = c(0,0), mult = c(0,0.01))) + 
-#   labs(x = "Number of samples where gene was covered",
-#        y = "Proportion of genes") +
-#   annotate(geom = "point",
-#            x = 800, y = 0.718, color = '#bb5566', shape = 4, size = 2, stroke = 1) +
-#   annotate(geom = "richtext",
-#            x = 750, y = 0.65, color = '#bb5566', size = 3,
-#            hjust = 0, vjust = 1,
-#            label = "Interpretation: <br> 71.8% of genes were tested <br> in no more than 800 samples.") +
-#   annotate(geom = "point",
-#            x = 800, y = 0.718, color = '#bb5566', shape = 4, size = 2, stroke = 1) +
-#   annotate(geom = "richtext",
-#            x = 750, y = 0.65, color = '#bb5566', size = 3,
-#            hjust = 0, vjust = 1,
-#            label = "Interpretation: <br> 71.8% of genes were tested <br> in no more than 800 samples.") +
-#   theme_classic()
-
 gg_gene_sample_hist <- ggplot(
   dft_gp_by_gene,
   aes(x = prop_samp_tested)
@@ -164,7 +240,11 @@ gg_gene_sample_hist <- ggplot(
   scale_x_continuous(
     labels = scales::percent,
     expand = expansion(add = c(0,0), mult = c(0,0.01)),
-    breaks = seq(0,1, by = 0.1))
+    breaks = seq(0,1, by = 0.1)) + 
+  theme(
+    # jump up the right margin to get the '100%' in 
+    plot.margin = margin(unit(c(5.5, 10, 5.5, 5.5), "points"))
+  )
 
 # Quick computation for the observations below:
 n_genes_total_coverage <- dft_gp_by_gene %>% filter(prop_samp_tested >= 0.999) %>% nrow()
@@ -174,24 +254,258 @@ dft_gp_by_gene %>% filter(prop_samp_tested < 0.5) %>% nrow()
 
 ```
 
-### R2.2 Gene test coverage over samples
 
-There are `r nrow(dft_gp_by_gene$hugo)` genes covered by at least one panel in this dataset.  This is a histogram of genes, showing the number covering each decile of sample proportion.
 
-**Example interpretation:** The bar between 90% and 100% shows about 200 genes.  This means that approximately 200 genes were tested in at least 90% of panels.  Likewise, there were nearly 300 genes which were tested in under 10% of samples.
+
+
+```{r}
+n_pt <- dft_ca_ind %>% nrow
+n_samp <- dft_cpt %>% nrow
+dfp_gp <- dft_gp_all %>% 
+  mutate(
+    Patients = glue("{n_pts} ({round(n_pts/n_pt*100, 1)}%)"),
+    Samples = glue("{n_samples} ({round(n_samples/n_samp*100, 1)}%)"),
+    Genes = n_genes
+  ) %>%
+  select(
+    Panel = cpt_seq_assay_id,
+    Patients,
+    Samples,
+    Genes
+  ) %>%
+  distinct
+  
+```
+
+### R2.1.2b Panel coverage (table)
+
+The following table shows similar information to the above figure: the number of patients, samples and genes covered by each panel.  
 
 ```{r, include = T}
+dfp_gp %>%
+  huxtable(.) %>%
+  huxtable::set_align(value = "left") %>%
+  theme_compact(.)
+```
+
+*Note:* The patient percentages do not add to 100 (because each person can be tested with multiple panels).
+
+
+
+
+### R2.1.3 Gene NGS coverage over samples
+
+There are `r length(unique(dft_gp_by_gene$hugo))` genes covered by at least one panel in this dataset.  This is a histogram of genes, showing the number covering each decile of the proportion of samples (see example interpretation below).
+
+```{r, include = T, fig.height = 4}
 gg_gene_sample_hist
+```
+
+**Example interpretation:** The bar between 90% and 100% shows about 200 genes.  This means that approximately 200 genes were covered in at least 90% of panels.  Likewise, there were nearly 300 genes which were covered in under 10% of samples.
+
+Observations:
+
+- There are only `r n_genes_total_coverage` genes covered by every panel.  For our clinico-genomic analyses analyses it might be better to include genes covered by **most** panels to gather a larger set.  Two natural cut points based on the graph above may be:
+  - Genes covered by at least 90% of panels: `r n_genes_90_cov`.
+  - Genes covered by at least 70% of panels: `r n_genes_70_cov`.
+  - Keep in mind that some of these will have too few positives to be used, further reducing the numbers of genes included.  We'll describe this in subsequent sections.
+- The majority of genes are covered by under 50% of samples.  These will almost certainly need to be excluded for clinico-genomic analyses due to the degree of missingness.
+
+
+
+
+```{r}
+library(colorspace)
+
+dft_onco_impact %<>% 
+  mutate(n_div = if_else(
+    oncogenic %in% c("Oncogenic", "Likely Oncogenic"),
+    n,
+    -n)
+  ) %>%
+  arrange(type, oncogenic)
+
+# hcl_palettes("diverging", n = 5, plot = T)
+pal_onco <- diverging_hcl(
+  palette = "Tropic", n = 5
+)
+
+
+
+
+gg_onco_impact <- ggplot(
+  dft_onco_impact,
+  aes(x = n_div, fill = oncogenic, y = type)
+) + 
+  geom_col(
+    position = "stack", orientation = 'y'
+  ) +
+  scale_fill_manual(
+    values = pal_onco,
+    name = NULL
+  ) +
+  guides(
+    fill = guide_legend(reverse = T)
+  ) + 
+  labs(
+    x = "Alterations (bulk count)",
+    title = "Oncogenic annotation with OncoKB"
+  ) + 
+  theme_classic() + 
+  theme(
+    legend.position = "bottom",
+    plot.title.position = "plot"
+  )
+```
+
+### R2.2.1 Oncogenic annotation impact
+
+We discussed annotating and potentially filtering the data using the "oncogenic" feature from oncoKB (https://www.oncokb.org/).  Looking at the alteration level (multiple alterations per sample are possible), the following plot shows the impact this would have on the raw data.
+
+```{r, include = T, fig.height = 4}
+gg_onco_impact
 ```
 
 Observations:
 
-- There are only `r n_genes_total_coverage` genes covered by every panel.  For our clinical analyses it might be better to include genes covered by **most** panels to gather a larger set.  Two natural cut points based on the graph above may be:
-  - Genes covered by at least 90% of panels: `r n_genes_90_cov`.
-  - Genes covered by at least 70% of panels: `r n_genes_70_cov`.
-  - Keep in mind that some of these will have too few positives to be used, further reducing the numbers.  We'll describe this in subsequent sections.
-- The majority of genes are covered by under 50% of samples.  I don't think there's a ton we can do in using these as prognostic/predictive variables with that level of missingness.
+- If we filtered our data to include only likely oncogenic or oncogenic alterations, we lose most of the mutations, and a smaller proportion or the fusions and CNAs.
+
+
+
+
+
+
+```{r}
+form_f <- function(x, digits = 0) {
+    formatC(x, format = 'f', digits = digits)
+}
+n_pct_str <- function(n, d, show_d = F, digits = 2, na = "") {
+    if (any((n %% 1 != 0) | (d %% 1 != 0), na.rm = T)) {
+        stop("n, d must be integers (n %% 1 == 0 must be true)")
+    }
+    if (length(na) > 1) {
+        stop("na must be a length 1 vector (or NULL)")
+    }
+
+    pct <- n/d
+    if (show_d) {
+        rtn <- glue::glue("{n}/{d} ({form_f(pct*100, digits = digits)}%)")
+    } else {
+        rtn <- glue::glue("{n} ({form_f(pct*100, digits = digits)}%)")
+    }
+
+    if (!is.null(na)) {
+        rtn[is.na(n)] <- glue::glue("{na}")
+    }
+    return(rtn)
+}
+
+n_pct_str(9, 30)
+
+dft_alt_wide <- dft_alterations %>%
+  select(-pct_altered) %>%
+  pivot_wider(
+    names_from = "filter",
+    values_from = "n_altered"
+  ) %>%
+  mutate(
+    plt_lab = glue(
+      "Gene: {hugo}
+     Number of samples tested: {n_tested_this_gene}
+     Number (%) altered raw: {n_pct_str(Raw, n_tested_this_gene)}
+     Number (%) altered after oncoKB {n_pct_str(OncoKB, n_tested_this_gene)}"
+    ),
+    OncoKB_pct = OncoKB/n_tested_this_gene,
+    Raw_pct = Raw/n_tested_this_gene
+  )
+
+
+gg_onco_mut <- ggplot(
+  data = dft_alt_wide,
+  aes(x = Raw_pct, y = OncoKB_pct, text = plt_lab,
+      color = n_tested_this_gene)
+) + 
+  geom_point(size = 0.75) +
+  theme_bw() +
+  labs(
+    y = "After Oncogenic filter",
+    x = "Before Oncogenic filter",
+    title = "Alteration frequencies by gene"
+  ) + 
+  scale_x_continuous(
+    labels = scales::percent
+  ) + 
+  scale_y_continuous(
+    labels = scales::percent
+  ) +
+  scale_color_viridis_c(begin = 0.2, end = 0.8, name = "Samples tested for this gene") + 
+  theme(
+    legend.position = "bottom"
+  )
+
   
+
+gg_onco_mut_zoom <- gg_onco_mut + 
+  coord_cartesian(
+    xlim = c(0, 0.03),
+    ylim = c(0, 0.03)
+  )
+
+plt_onco_mut <- plotly::ggplotly(gg_onco_mut, tooltip ="text")
+
+plt_onco_mut_zoom <- plotly::ggplotly(gg_onco_mut_zoom, tooltip ="text")
+
+```
+
+
+### R2.2.2 OncoKB impact by gene (mutations)
+
+The following plot shows each gene by the percentage of tests showing an alteration before and after oncoKB filtering.  The colors represent the number of samples tested for the gene.
+
+**Hover over** each plot for the gene name and the same information in text.
+
+```{r, include = T}
+plt_onco_mut 
+```
+
+This is a version zoomed in on the lower left of the same plot:
+
+```{r, include = T}
+plt_onco_mut_zoom
+```
+
+
+
+
+
+
+
+
+## Upcoming
+
+- Assessment of the impact on the frequency of alteration for each gene with and without oncoKB filtering for CNA/Fusions.
+- Further charcterization of alterations after we decide on filtering:
+  - Consequence (missense, frameshift, synonymous, etc).
+  - Level of evidence (for likely oncogenic or oncogenic mutations).
+
+
+
+
+
+## Problems/Concerns
+
+### Structural variants
+
+**Question:** At one of our early meetings, someone asked about structural variants and whether they would be covered by our assessments. 
+
+**Answer:** Yes, with some limits.  In main GENIE v12, which forms the foundation for this BPC cohort, fusion files were still in use and had not been replaced by SV files.  We will use this file for analysis, and while we know the class of structural variants is broader than fusions, my understanding is that in practice these pipelines/files cover similar ground.
+
+There is also the question of whether a particular panel covers structural variants - some do and some do not in this dataset.  The vast majority of our samples are tested with panels that can assess structural variants (for example, all the MSK IMPACT and DFCI ONCOPANELs look at SVs).  Some of the smaller panels (UHN_48-V1) do not cover SVs.  
+
+A similar issue is present for CNAs - some panels cover them and some don't.  Additionally, reading the data guide, some only cover gene level CNAs and not intragenic CNAs. 
+
+
+
 
 
 

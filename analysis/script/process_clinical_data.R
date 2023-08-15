@@ -71,6 +71,25 @@ cli_alert_info(glue("{nrow(dft_reg)-n_row_reg_old} rows removed from dft_reg for
 cli_alert_info(glue("{nrow(dft_rad)-n_row_rad_old} rows removed from dft_rad for being related to non index cancers"))
 
 
+# Create additional derived variables.
+lev_st_simple <- c("Primary tumor", "Metastatic", "Other")
+dft_cpt %<>%
+  mutate(
+    sample_type_simple_f = case_when(
+      is.na(sample_type) ~ NA_character_,
+      sample_type %in% "Local recurrence" ~ lev_st_simple[3],
+      sample_type %in% "Lymph node metastasis" ~ lev_st_simple[2],
+      sample_type %in% "Metastasis site unspecified" ~ lev_st_simple[2],
+      sample_type %in% "Not applicable or hematologic malignancy" ~ lev_st_simple[3],
+      sample_type %in% "Primary tumor" ~ lev_st_simple[1],
+      T ~ NA_character_,
+    ),
+    sample_type_simple_f = factor(sample_type_simple_f, levels = lev_st_simple)
+  )
+      
+      
+
+
 # Not a best practice to use the names, but it will work.
 write_help <- function(dat) {
   nm <- deparse(substitute(dat))
