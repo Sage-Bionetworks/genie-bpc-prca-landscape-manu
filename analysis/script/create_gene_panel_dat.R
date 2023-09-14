@@ -23,6 +23,7 @@ gp_all %<>% rename(cpt_seq_assay_id = stable_id)
 
 
 
+
 # Merge in the sample data.
 dft_cpt <- readr::read_rds(
   here('data', 'clin', 'dft_cpt.rds')
@@ -67,10 +68,53 @@ gp_sum %<>%
     cpt_seq_assay_id = forcats::fct_inorder(cpt_seq_assay_id)
   )
   
+saveRDS(
+  object = gp_sum,
+  file = here('data', 'genomic', 'gene_panel_sum.rds')
+)
 
 
 
 
+
+
+
+
+
+
+
+# Metadata from the data guide (main GENIE data guide, table 4) which
+#  I'm manually typing in:
+# Specifically this is gene-level CNA and 'structural variants' are fusions.
+dft_gp_meta <- tribble(
+  ~panel, ~tested_cna, ~tested_fusion,
+  "MSK-IMPACT341", 1, 1,
+  "MSK-IMPACT410", 1, 1,
+  "MSK-IMPACT468", 1, 1,
+  "DFCI-ONCOPANEL-1", 1, 1,
+  "DFCI-ONCOPANEL-2", 1, 1,
+  "DFCI-ONCOPANEL-3", 1, 1,
+  # Making a guess here since it doesn't show up explicitly:
+  "DFCI-ONCOPANEL-3.1", 1, 1,
+  "VICC-01-T7", 1, 1,
+  "VICC-01-T5A", 1, 1,
+  "UHN-48-V1", 0, 0, 
+  "UHN-50-V2", 0, 0,
+  "UHN-555-V1", 1, 1,
+  "UHN-555-PROSTATE-V1", 1, 1,
+  "UHN-OCA-V3", 0, 1
+) %>%
+  mutate(
+    across(
+      .cols = c(tested_cna, tested_fusion),
+      .fns = as.logical
+    )
+  )
+
+gp_all %<>%
+  left_join(
+    ., dft_gp_meta, by = c(cpt_seq_assay_id = "panel")
+  )
 
 gp_by_gene <- gp_all %>% 
   group_by(hugo) %>%
@@ -104,6 +148,12 @@ gp_by_gene %<>%
     hugo = forcats::fct_inorder(hugo)
   )
 
+saveRDS(
+  object = gp_by_gene,
+  file = here('data', 'genomic', 'gene_panel_by_gene.rds')
+)
+
+
 
 
 
@@ -124,19 +174,9 @@ gp_all %<>%
     )
   )
 
-
-# Save the datasets.
 saveRDS(
   object = gp_all,
   file = here('data', 'genomic', 'gene_panel_all.rds')
-)
-saveRDS(
-  object = gp_sum,
-  file = here('data', 'genomic', 'gene_panel_sum.rds')
-)
-saveRDS(
-  object = gp_by_gene,
-  file = here('data', 'genomic', 'gene_panel_by_gene.rds')
 )
 
   

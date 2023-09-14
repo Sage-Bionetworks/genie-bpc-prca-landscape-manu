@@ -186,24 +186,19 @@ dft_gp_all %<>%
     assay_lab = forcats::fct_inorder(assay_lab)
   ) 
 
-gg_panel_coverage <- ggplot(
-  data = dft_gp_all,
-  aes(x = hugo, y = assay_lab)
-) + 
-  geom_raster() +
-  theme_classic() + 
-  scale_y_discrete(limits = rev) + 
-  labs(x = "Gene (one line per gene)",
-       title = "Gene panel coverage",
-       subtitle = "Panels annotated with [number of genes] and (patients, samples) tested.") + 
-  theme(
-    axis.title.y = element_blank(),
-    axis.text.x = element_blank(),
-    axis.ticks.x = element_blank(),
-    axis.line.x = element_blank(),
-    axis.line.y = element_blank(),
-    plot.title.position = "plot"
-  )
+# Get the list of genes covered in >50% of panels and which have at least 1 alteration in the data:
+
+dft_gp_by_gene
+
+
+
+gg_panel_coverage <- plot_assay_heatmap(
+  dat = dft_gp_all,
+  plot_title = "Gene panel coverage"
+)
+  
+  
+  
 ```
 
 
@@ -443,39 +438,18 @@ gg_onco_mut <- ggplot(
     legend.position = "bottom"
   )
 
-  
 
-gg_onco_mut_zoom <- gg_onco_mut + 
-  coord_cartesian(
-    xlim = c(0, 0.03),
-    ylim = c(0, 0.03)
-  )
 
 plt_onco_mut <- plotly::ggplotly(gg_onco_mut, tooltip ="text")
 
-plt_onco_mut_zoom <- plotly::ggplotly(gg_onco_mut_zoom, tooltip ="text")
 
 ```
 
-
-### R2.2.2 OncoKB impact by gene (mutations)
-
-The following plot shows each gene by the percentage of tests showing an alteration before and after oncoKB filtering.  The colors represent the number of samples tested for the gene.
-
-**Hover over** each plot for the gene name and the same information in text.
+## R 2.2.2 Oncogenic impact on mutations
 
 ```{r, include = T}
-plt_onco_mut 
+plt_onco_mut
 ```
-
-This is a version zoomed in on the lower left of the same plot:
-
-```{r, include = T}
-plt_onco_mut_zoom
-```
-
-
-
 
 
 

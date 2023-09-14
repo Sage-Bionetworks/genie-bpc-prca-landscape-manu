@@ -25,8 +25,9 @@ dft_cna_raw <- readr::read_tsv(
   show_col_types = F
 ) 
 dft_cna_onco <- bind_cols(
-  dft_cna_onco,
-  select(dft_cna_raw, value)
+  # The sample ID that came back is garbage.
+  select(dft_cna_onco, -SAMPLE_ID),
+  select(dft_cna_raw, SAMPLE_ID, value)
 ) %>%
   filter(value %in% 2) # highly amplified
 
@@ -57,8 +58,6 @@ dft_onco_impact <- bind_rows(
   onco_count_help(dft_fus_onco, "Fusion")
 )
 
-dft_onco_impact
-
 lev_onco <- c("Oncogenic", "Likely Oncogenic",
               "Likely Neutral",
               "Inconclusive", "Unknown")
@@ -79,130 +78,231 @@ readr::write_rds(
 
 
 
+# Create an alterations dataset - one row per alteration.
+
+dft_mut_onco_alt <- dft_mut_onco %>%
+  rename_all(tolower) %>%
+  mutate(alt_type = "Mutation") %>%
+  select(
+    sample_id = tumor_sample_barcode,
+    hugo = hugo_symbol,
+    alt_type,
+    hgvsc,
+    hgvsp,
+    chromosome,
+    oncogenic,
+    mutation_effect,
+    highest_level,
+    consequence,
+    variant_classification,
+    variant_type,
+    mutation_status
+  )
+
+dft_cna_onco_alt <- dft_cna_onco %>% 
+  rename_all(tolower) %>%
+  mutate(alt_type = "CNA") %>%
+  select(
+    sample_id,
+    hugo = hugo_symbol,
+    alt_type,
+    cna_desc = alteration,
+    oncogenic,
+    highest_level,
+    mutation_effect
+  )
+
+dft_fus_onco_alt <- dft_fus_onco %>% 
+  rename_all(tolower) %>%
+  mutate(alt_type = "Fusion") %>%
+  select(
+    sample_id = tumor_sample_barcode,
+    hugo = hugo_symbol,
+    alt_type,
+    fusion_desc = fusion,
+    oncogenic,
+    mutation_effect,
+    highest_level
+  )
+
+dft_alt <- bind_rows(
+  dft_mut_onco_alt,
+  dft_cna_onco_alt,
+  dft_fus_onco_alt
+)
+
+# We need a unique key.  Currently a sample can have several alterations in the same #  hugo code and alteration type.  
+# Initially I wanted to use the descriptions of the
+#  alterations, such as the HGVSc code or the fusion description.  Because these
+#  are sometimes missing I'm going to assign a number instead.  Sometimes even with 
+#  a missing HGVSc&HGVSp code the variant can be annotated by oncokb - I don't 
+#  want to remove those just to fit what would have been a beautiful data structure.
+dft_alt %<>% 
+  group_by(sample_id) %>%
+  mutate(alt_seq = 1:n()) %>%
+  ungroup(.) 
+
+lev_alt_type <- c(
+  "Mutation",
+  "CNA",
+  "Fusion"
+)
+
+
+# bit of cleanup
+dft_alt %<>%
+  mutate(
+    alt_type = factor(alt_type, levels = lev_alt_type),
+    oncogenic = factor(oncogenic, levels = lev_onco),
+    mutation_effect = format_mutation_effect(mutation_effect),
+    mut_eff_simple = format_mutation_effect_simple(mutation_effect),
+    highest_level = format_highest_level(highest_level)
+  ) %>%
+  select(
+    sample_id,
+    alt_seq,
+    hugo,
+    alt_type,
+    # features common to all alterations:
+    oncogenic,
+    mutation_effect,
+    mut_eff_simple,
+    highest_level,
+    # descriptors for each alteration type:
+    hgvsc,
+    hgvsp,
+    cna_desc,
+    fusion_desc,
+    # Any other data we pulled, like mutation stuff or whatever:
+    everything()
+  )
+
+readr::write_rds(
+  x = dft_alt,
+  file = here('data', 'genomic', 'alterations.rds')
+)
+
+
+
 # Assess the oncoKB impact on individual mutations
 
 dft_cpt <- readr::read_rds(
   here('data', 'clin', 'dft_cpt.rds')
 )
-dft_alterations <- dft_cpt %>%
+dft_gene_test <- dft_cpt %>%
   select(
     cpt_genie_sample_id, record_id, ca_seq, cpt_seq_assay_id, 
     contains("sample_type")
   )
 dft_gp_all <- readr::read_rds(
   here('data', 'genomic', 'gene_panel_all.rds')
-)
+) %>%
+  mutate(hugo = as.character(hugo))
 
-dft_alterations %<>%
+dft_gene_test %<>%
   left_join(., dft_gp_all, by = "cpt_seq_assay_id",
             relationship = "many-to-many")
 
-dft_alterations %<>%
-  group_by(hugo) %>%
-  mutate(n_tested_this_gene = n()) %>%
-  ungroup(.)
-
-dft_mut_onco %>% glimpse
-dft_mut_onco_sub <- dft_mut_onco %>% 
-  mutate(
-    onco_filter = if_else(
-      ONCOGENIC %in% lev_onco[1:2],
-      T,
-      F, 
-      F)
-  ) %>%
+dft_gene_test %<>%
   select(
-    cpt_genie_sample_id = Tumor_Sample_Barcode,
-    hugo = Hugo_Symbol, 
-    # Consequence, Variant_Classification, Variant_Type,
-    # GENE_IN_ONCOKB, VARIANT_IN_ONCOKB,
-    onco_filter
-  )
-
-# For multiple alterations, we compress them into one line:
-dft_mut_onco_sub %<>% 
-  group_by(cpt_genie_sample_id, hugo) %>%
-  mutate(onco_filter = any(onco_filter)) %>%
-  slice(1) %>%
-  ungroup(.)
-
-dft_mut_onco_raw <- dft_mut_onco_sub %>%
-  mutate(variant_mut_raw = 1) %>%
-  select(-onco_filter)
-
-dft_mut_onco_filt <- dft_mut_onco_sub %>%
-  filter(onco_filter) %>%
-  mutate(variant_mut_okb = 1) %>%
-  select(-onco_filter)
-
-dft_alterations %<>%
-  left_join(
-    ., 
-    dft_mut_onco_raw, 
-    by = c("cpt_genie_sample_id", "hugo"),
-    relationship = "one-to-many"
+    sample_id = cpt_genie_sample_id, 
+    cpt_seq_assay_id, 
+    hugo, 
+    contains("tested")
   ) %>%
-  left_join(
-    ., 
-    dft_mut_onco_filt, 
-    by = c("cpt_genie_sample_id", "hugo"),
-    relationship = "one-to-many"
-  ) 
-
-dft_alterations %<>%
-  mutate(
-    across(
-      .cols = c("variant_mut_raw", "variant_mut_okb"),
-      .fns = (function(x) if_else(is.na(x), 0, x))
-    )
-  )
-
-dft_alterations %<>%
-  mutate(
-    sum_alt = variant_mut_raw + variant_mut_okb
-  ) %>%
-  filter(sum_alt >= 1) %>%
-  select(-sum_alt)
-
-#dft_alterations$variant_mut_raw %>% sum
-#dft_alterations$variant_mut_okb %>% sum
-
-
-dft_alterations %<>%
-  mutate(alteration_type = "Mutation") %>%
   pivot_longer(
-    cols = contains("variant"),
-    names_to = "filter",
-    values_to = "alteration"
-  ) 
-
-dft_alterations %<>%
-  mutate(
-    filter = if_else(
-      str_detect(filter, "raw"),
-      "Raw",
-      "OncoKB"
-    )
-  ) 
-
-
-dft_alterations %<>% 
-  group_by(hugo, filter) %>%
-  summarize(
-    n_altered = sum(alteration),
-    n_tested_this_gene = first(n_tested_this_gene),
-    .groups = "drop"
+    cols = contains("tested"),
+    names_to = "test_type",
+    values_to = "test_logical"
   ) %>%
   mutate(
-    pct_altered = n_altered / n_tested_this_gene
+    alt_type = case_when(
+      test_type %in% "tested" ~ "Mutation",
+      test_type %in% "tested_cna" ~ "CNA",
+      test_type %in% "tested_fusion" ~ "Fusion"
+    ),
+    alt_type = factor(alt_type, levels = lev_alt_type)
+  )
+
+dft_gene_test %<>%
+  filter(test_logical) %>%
+  select(-c(test_type, test_logical))
+
+# Here we do a diversion to investigate something:  Are there samples here
+#  which were NOT tested for an alteration but show it anyway.
+# dft_gene_test_true <- dft_gene_test %>% filter(test_logical)
+# 
+# set.seed(130)
+# chk_untested_but_positive <- anti_join(
+#   dft_alt,
+#   dft_gene_test_true,
+#   by = c("sample_id", "hugo", "alt_type")
+# ) # %>%
+#   group_by(alt_type) %>%
+#   arrange(desc(!(oncogenic %in% "Unknown"))) %>% 
+#   slice(1:3) %>%
+#   ungroup(.)
+# 
+# chk_untested_but_positive %>% 
+#   slice(c(2,3,4,5,6,7)) %>%
+#   select(sample_id, hugo, alt_type, oncogenic, highest_level, fusion_desc)
+# 
+# vec_ubp_sample_id <- chk_untested_but_positive %>%
+#   filter(!(alt_type %in% "Fusion")) %>%
+#   pull(sample_id) 
+# dft_cpt %>% 
+#   filter(cpt_genie_sample_id %in% vec_ubp_sample_id) %>% 
+#   tabyl(cpt_seq_assay_id)
+
+
+
+dft_gene_test <- dft_alt %>% 
+  # everything in this dataframe represents an alteration, so:
+  mutate(altered = 1) %>%
+  select(sample_id, hugo, alt_type, altered, oncogenic, mut_eff_simple) %>%
+  left_join(
+    dft_gene_test,
+    .,
+    by = c("sample_id", "hugo", "alt_type")
+  )
+
+
+readr::write_rds(
+  x = dft_gene_test,
+  file = here('data', 'genomic', 'alt_test_full.rds')
+)
+
+
+
+# Now we're ready to summarize:
+
+dft_onco_imp <- dft_gene_test %>%
+  group_by(hugo, alt_type) %>%
+  summarize(
+    n_tested = n(),
+    n_altered = sum(altered, na.rm = T),
+    n_oncogenic = sum(oncogenic %in% c("Likely Oncogenic", "Oncogenic"), na.rm = T),
+    n_gain = sum(mut_eff_simple %in% "Gain", na.rm = T),
+    n_loss = sum(mut_eff_simple %in% "Loss", na.rm = T),
+    n_switch = sum(mut_eff_simple %in% "Switch", na.rm = T),
+    .groups = "drop"
   )
 
 readr::write_rds(
-  x = dft_alterations,
-  file = here('data', 'genomic', 'oncokb_impact_by_gene.rds')
+  x = dft_onco_imp,
+  file = here('data', 'genomic', 'gene_counts.rds')
 )
 
-               
+ 
+    
+  
+  
+
+
+
+
+
+
   
 
 

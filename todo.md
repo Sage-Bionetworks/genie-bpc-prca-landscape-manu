@@ -13,6 +13,7 @@ Important:
 
 Not too important:
 - The save_oncokb_annotated_data.R file is not working, something about permissions being denied.  It's easy enough to just drag 3 files in as a workaround, but this would be nice to troubleshoot sometime.
+- Add a "folder_setup.R" file to create all the subfolders needed for this project.  It's a mess to have them all over because different files depend on them.
 
 Open questions:
 - Does using PRAD or similar have a different result for mutations than using "PROSTATE" on mutations?
