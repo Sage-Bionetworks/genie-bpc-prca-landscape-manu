@@ -208,8 +208,8 @@ gg_panel_coverage <- plot_assay_heatmap(
 )
 
 gg_panel_coverage_limited <- plot_assay_heatmap(
-  dat = dft_gp_all,
-  plot_title = "Gene panel coverage"
+  dat = dft_gp_all_limited,
+  plot_title = "Gene panel coverage (limited)"
 )
   
   
@@ -244,41 +244,72 @@ Observations:
 ```{r}
 n_pt <- dft_ca_ind %>% nrow
 n_samp <- dft_cpt %>% nrow
-dfp_gp <- dft_gp_all %>% 
-  mutate(
-    Patients = glue("{n_pts} ({round(n_pts/n_pt*100, 1)}%)"),
-    Samples = glue("{n_samples} ({round(n_samples/n_samp*100, 1)}%)"),
-    Genes = n_genes
-  ) %>%
-  select(
-    Panel = cpt_seq_assay_id,
-    Patients,
-    Samples,
-    Genes
-  ) %>%
-  distinct
+
+gene_panel_table_help <- function(dat) {
+  dat %>% 
+    mutate(
+      Patients = glue("{n_pts} ({round(n_pts/n_pt*100, 1)}%)"),
+      Samples = glue("{n_samples} ({round(n_samples/n_samp*100, 1)}%)"),
+      Genes = n_genes
+    ) %>%
+    select(
+      Panel = cpt_seq_assay_id,
+      Patients,
+      Samples,
+      Genes
+    ) %>%
+    distinct
+}
+
+dfp_gp <- gene_panel_table_help(dft_gp_all)
+dfp_gp_limited <- gene_panel_table_help(dft_gp_all_limited)
+
+gp_table_hux <- function(dat) {
+  dat %>%
+    huxtable(.) %>%
+    huxtable::set_align(value = "left") %>%
+    theme_compact(.)
+}
   
 ```
 
 **Table Version**  The following table shows similar information to the above figure: the number of patients, samples and genes covered by each panel.  
 
 ```{r, include = T}
-dfp_gp %>%
-  huxtable(.) %>%
-  huxtable::set_align(value = "left") %>%
-  theme_compact(.)
+gp_table_hux(dfp_gp)
 ```
 
 *Note:* The patient percentages do not add to 100 (because each person can be tested with multiple panels).
 
-### R2.1.2b Panel coverage, limited
 
-Same as R2.1.2a except we limit to genes with at least one alteration in the dataset, and genes that are covered in the panels used in at least 50% of samples.
 
-```{r, include = T}
-gg_panel_coverage
+```{r}
+genes_panel <- dft_gp_all %>% 
+  pull(hugo) %>% 
+  unique %>%
+  length
+
+
+genes_panel_limited <- dft_gp_all_limited %>% 
+  pull(hugo) %>% 
+  unique %>%
+  length
 ```
 
+
+### R2.1.2b Panel coverage, limited
+
+Same as R2.1.2a except we limit to genes with at least one alteration in the dataset, and genes that are covered in the panels used in at least 50% of samples.  This selection brings us down to `r genes_panel_limited` genes, from the original `r genes_panel`.
+
+```{r, show_gene_table_limited, include = T}
+gg_panel_coverage_limited
+```
+
+**Table version** Same table as R2.1.2a above except with the limited subset of genes:
+
+```{r, show_gene_table_limited, include = T}
+gp_table_hux(dfp_gp_limited)
+```
 
 
 
