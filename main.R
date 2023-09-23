@@ -33,7 +33,6 @@ source(here('analysis', 'script', 'reshape_cna.R'))
 source(here('analysis', 'script', 'save_oncokb_annotated_data.R'))
 # After that the files can be obtained from synid in save_oncokb_annotated_data.R
 
-
 source(here('analysis', 'script', 'create_gene_panel_dat.R'))
 source(here('analysis', 'script', 'process_oncokb_output.R'))
 rmarkdown::render(

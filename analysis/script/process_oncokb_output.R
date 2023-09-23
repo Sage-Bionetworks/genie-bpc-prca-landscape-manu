@@ -182,7 +182,25 @@ readr::write_rds(
   file = here('data', 'genomic', 'alterations.rds')
 )
 
+gene_gte1_alt <- dft_alt %>% 
+  pull(hugo) %>% unique %>% sort
 
+gene_mut_not_in_panel <- setdiff(
+  (dft_alt %>% filter(alt_type %in% "Mutation") %>%
+     pull(hugo) %>% unique %>% sort),
+  (dft_gp_all$hugo %>% unique %>% sort)
+)
+
+if (length(gene_mut_not_in_panel) > 0) {
+  cli::cli_alert_danger(
+    "Mutations exist which are in no panels: {paste(gene_mut_not_in_panel, collapse = ', ')}"
+  )
+}
+
+readr::write_rds(
+  gene_gte1_alt,
+  file = here('data', 'genomic', 'gene_gte1_alt.rds')
+)
 
 # Assess the oncoKB impact on individual mutations
 
@@ -254,6 +272,8 @@ dft_gene_test %<>%
 #   filter(cpt_genie_sample_id %in% vec_ubp_sample_id) %>% 
 #   tabyl(cpt_seq_assay_id)
 
+# Bottom line from the above: Yep.  Sent a note to Sage team.
+
 
 
 dft_gene_test <- dft_alt %>% 
@@ -266,10 +286,23 @@ dft_gene_test <- dft_alt %>%
     by = c("sample_id", "hugo", "alt_type")
   )
 
-
+# Not 100% sure this is needed, but it can't hurt:
 readr::write_rds(
   x = dft_gene_test,
-  file = here('data', 'genomic', 'alt_test_full.rds')
+  file = here('data', 'genomic', 'gene_test_index.rds')
+)
+
+
+n_sample <- nrow(dft_cpt)
+dft_prop_samples_gene_tested <- dft_gene_test %>%
+  count(sample_id, hugo) %>% # n here is meaningless.
+  count(hugo) %>%
+  mutate(prop = n/n_sample) %>%
+  arrange(desc(prop))
+
+readr::write_rds(
+  x = dft_prop_samples_gene_tested,
+  file = here('data', 'genomic', 'gene_prop_samp_test.rds')
 )
 
 
@@ -293,7 +326,7 @@ readr::write_rds(
   file = here('data', 'genomic', 'gene_counts.rds')
 )
 
- 
+
     
   
   

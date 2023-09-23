@@ -186,13 +186,28 @@ dft_gp_all %<>%
     assay_lab = forcats::fct_inorder(assay_lab)
   ) 
 
-# Get the list of genes covered in >50% of panels and which have at least 1 alteration in the data:
+# Get the list of genes covered in >50% of samples and which have at least 1 alteration in the data:
 
-dft_gp_by_gene
-
+vec_gene_gte1_alt <- readr::read_rds(
+  here('data', 'genomic', 'gene_gte1_alt.rds')
+)
+dft_gene_prop_samp_test <- readr::read_rds(
+  here('data', 'genomic', 'gene_prop_samp_test.rds')
+)
+vec_test_prop_gte50 <- dft_gene_prop_samp_test %>%
+  filter(prop >= 0.5) %>%
+  pull(hugo)
+dft_gp_all_limited <- dft_gp_all %>%
+  filter(hugo %in% vec_gene_gte1_alt) %>%
+  filter(hugo %in% vec_test_prop_gte50)
 
 
 gg_panel_coverage <- plot_assay_heatmap(
+  dat = dft_gp_all,
+  plot_title = "Gene panel coverage"
+)
+
+gg_panel_coverage_limited <- plot_assay_heatmap(
   dat = dft_gp_all,
   plot_title = "Gene panel coverage"
 )
@@ -219,6 +234,58 @@ Observations:
   - {DFCI-ONCOPANEL-3, DFCI-ONCOPANEL-3.1, UNH-555-*}
   - {MSK_IMPACT468, DFCI-ONCOPANEL-2, VICC-01-T7}
   - The two UHN panels with few genes covered. 
+
+
+
+
+
+
+
+```{r}
+n_pt <- dft_ca_ind %>% nrow
+n_samp <- dft_cpt %>% nrow
+dfp_gp <- dft_gp_all %>% 
+  mutate(
+    Patients = glue("{n_pts} ({round(n_pts/n_pt*100, 1)}%)"),
+    Samples = glue("{n_samples} ({round(n_samples/n_samp*100, 1)}%)"),
+    Genes = n_genes
+  ) %>%
+  select(
+    Panel = cpt_seq_assay_id,
+    Patients,
+    Samples,
+    Genes
+  ) %>%
+  distinct
+  
+```
+
+**Table Version**  The following table shows similar information to the above figure: the number of patients, samples and genes covered by each panel.  
+
+```{r, include = T}
+dfp_gp %>%
+  huxtable(.) %>%
+  huxtable::set_align(value = "left") %>%
+  theme_compact(.)
+```
+
+*Note:* The patient percentages do not add to 100 (because each person can be tested with multiple panels).
+
+### R2.1.2b Panel coverage, limited
+
+Same as R2.1.2a except we limit to genes with at least one alteration in the dataset, and genes that are covered in the panels used in at least 50% of samples.
+
+```{r, include = T}
+gg_panel_coverage
+```
+
+
+
+
+
+
+
+
 
 
 ```{r}
@@ -248,45 +315,6 @@ n_genes_70_cov <- dft_gp_by_gene %>% filter(prop_samp_tested >= 0.699) %>% nrow(
 dft_gp_by_gene %>% filter(prop_samp_tested < 0.5) %>% nrow()
 
 ```
-
-
-
-
-
-```{r}
-n_pt <- dft_ca_ind %>% nrow
-n_samp <- dft_cpt %>% nrow
-dfp_gp <- dft_gp_all %>% 
-  mutate(
-    Patients = glue("{n_pts} ({round(n_pts/n_pt*100, 1)}%)"),
-    Samples = glue("{n_samples} ({round(n_samples/n_samp*100, 1)}%)"),
-    Genes = n_genes
-  ) %>%
-  select(
-    Panel = cpt_seq_assay_id,
-    Patients,
-    Samples,
-    Genes
-  ) %>%
-  distinct
-  
-```
-
-### R2.1.2b Panel coverage (table)
-
-The following table shows similar information to the above figure: the number of patients, samples and genes covered by each panel.  
-
-```{r, include = T}
-dfp_gp %>%
-  huxtable(.) %>%
-  huxtable::set_align(value = "left") %>%
-  theme_compact(.)
-```
-
-*Note:* The patient percentages do not add to 100 (because each person can be tested with multiple panels).
-
-
-
 
 ### R2.1.3 Gene NGS coverage over samples
 
