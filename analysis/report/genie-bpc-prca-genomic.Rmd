@@ -172,6 +172,109 @@ Observations:
 
 
 
+
+
+
+
+```{r}
+gg_gene_sample_hist <- ggplot(
+  dft_gp_by_gene,
+  aes(x = prop_samp_tested)
+) +
+  geom_histogram(binwidth = 0.1, center = 0.05, fill = '#6699cc') +
+  theme_classic() + 
+  labs(x = "Proportion of samples gene tested in",
+       y = "Number of genes") + 
+  scale_y_continuous(expand = expansion(add = 0, mult = c(0,0.05)),
+                     n.breaks= 8) +
+  scale_x_continuous(
+    labels = scales::percent,
+    expand = expansion(add = c(0,0), mult = c(0,0.01)),
+    breaks = seq(0,1, by = 0.1)) + 
+  theme(
+    # jump up the right margin to get the '100%' in 
+    plot.margin = margin(unit(c(5.5, 10, 5.5, 5.5), "points"))
+  )
+
+# Quick computation for the observations below:
+n_genes_total_coverage <- dft_gp_by_gene %>% filter(prop_samp_tested >= 0.999) %>% nrow()
+n_genes_90_cov <- dft_gp_by_gene %>% filter(prop_samp_tested >= 0.899) %>% nrow()
+n_genes_70_cov <- dft_gp_by_gene %>% filter(prop_samp_tested >= 0.699) %>% nrow()
+dft_gp_by_gene %>% filter(prop_samp_tested < 0.5) %>% nrow()
+
+```
+
+### R2.1.2 Gene NGS coverage over samples
+
+There are `r length(unique(dft_gp_by_gene$hugo))` genes covered by at least one panel in this dataset.  This is a histogram of genes, showing the number covering each decile of the proportion of samples (see example interpretation below).
+
+```{r, include = T, fig.height = 4}
+gg_gene_sample_hist
+```
+
+**Example interpretation:** The bar between 90% and 100% shows about 200 genes.  This means that approximately 200 genes were covered in at least 90% of panels.  Likewise, there were nearly 300 genes which were covered in under 10% of samples.
+
+Observations:
+
+- There are only `r n_genes_total_coverage` genes covered by every panel.  For our clinico-genomic analyses analyses it might be better to include genes covered by **most** panels to gather a larger set.  Two natural cut points based on the graph above may be:
+  - Genes covered by at least 90% of panels: `r n_genes_90_cov`.
+  - Genes covered by at least 70% of panels: `r n_genes_70_cov`.
+  - Keep in mind that some of these will have too few positives to be used, further reducing the numbers of genes included.  We'll describe this in subsequent sections.
+- The majority of genes are covered by under 50% of samples.  These will almost certainly need to be excluded for clinico-genomic analyses due to the degree of missingness.
+
+
+
+
+```{r}
+library(colorspace)
+
+dft_onco_impact %<>% 
+  mutate(n_div = if_else(
+    oncogenic %in% c("Oncogenic", "Likely Oncogenic"),
+    n,
+    -n)
+  ) %>%
+  arrange(type, oncogenic)
+
+# hcl_palettes("diverging", n = 5, plot = T)
+pal_onco <- diverging_hcl(
+  palette = "Tropic", n = 5
+)
+
+
+
+
+gg_onco_impact <- ggplot(
+  dft_onco_impact,
+  aes(x = n_div, fill = oncogenic, y = type)
+) + 
+  geom_col(
+    position = "stack", orientation = 'y'
+  ) +
+  scale_fill_manual(
+    values = pal_onco,
+    name = NULL
+  ) +
+  guides(
+    fill = guide_legend(reverse = T)
+  ) + 
+  labs(
+    x = "Alterations (bulk count)",
+    title = "Oncogenic annotation with OncoKB"
+  ) + 
+  theme_classic() + 
+  theme(
+    legend.position = "bottom",
+    plot.title.position = "plot"
+  )
+```
+
+
+
+
+
+
+
 ```{r}
 # Add the number of patients and samples in parens:
 dft_gp_all %<>%
@@ -217,7 +320,7 @@ gg_panel_coverage_limited <- plot_assay_heatmap(
 ```
 
 
-### R2.1.2a Panel coverage
+### R2.1.3a Panel coverage
 
 Heatmap of gene panel coverage.
 
@@ -297,19 +400,15 @@ genes_panel_limited <- dft_gp_all_limited %>%
 ```
 
 
-### R2.1.2b Panel coverage, limited
+### R2.1.3b Panel coverage, limited
 
 Same as R2.1.2a except we limit to genes with at least one alteration in the dataset, and genes that are covered in the panels used in at least 50% of samples.  This selection brings us down to `r genes_panel_limited` genes, from the original `r genes_panel`.
 
-```{r, show_gene_table_limited, include = T}
+```{r, show_gene_figure_limited, include = T}
 gg_panel_coverage_limited
 ```
 
-**Table version** Same table as R2.1.2a above except with the limited subset of genes:
-
-```{r, show_gene_table_limited, include = T}
-gp_table_hux(dfp_gp_limited)
-```
+The table version of the limited set above would be the same except for the `Genes` column.  Skipping for now.
 
 
 
@@ -319,98 +418,6 @@ gp_table_hux(dfp_gp_limited)
 
 
 
-```{r}
-gg_gene_sample_hist <- ggplot(
-  dft_gp_by_gene,
-  aes(x = prop_samp_tested)
-) +
-  geom_histogram(binwidth = 0.1, center = 0.05, fill = '#6699cc') +
-  theme_classic() + 
-  labs(x = "Proportion of samples gene tested in",
-       y = "Number of genes") + 
-  scale_y_continuous(expand = expansion(add = 0, mult = c(0,0.05)),
-                     n.breaks= 8) +
-  scale_x_continuous(
-    labels = scales::percent,
-    expand = expansion(add = c(0,0), mult = c(0,0.01)),
-    breaks = seq(0,1, by = 0.1)) + 
-  theme(
-    # jump up the right margin to get the '100%' in 
-    plot.margin = margin(unit(c(5.5, 10, 5.5, 5.5), "points"))
-  )
-
-# Quick computation for the observations below:
-n_genes_total_coverage <- dft_gp_by_gene %>% filter(prop_samp_tested >= 0.999) %>% nrow()
-n_genes_90_cov <- dft_gp_by_gene %>% filter(prop_samp_tested >= 0.899) %>% nrow()
-n_genes_70_cov <- dft_gp_by_gene %>% filter(prop_samp_tested >= 0.699) %>% nrow()
-dft_gp_by_gene %>% filter(prop_samp_tested < 0.5) %>% nrow()
-
-```
-
-### R2.1.3 Gene NGS coverage over samples
-
-There are `r length(unique(dft_gp_by_gene$hugo))` genes covered by at least one panel in this dataset.  This is a histogram of genes, showing the number covering each decile of the proportion of samples (see example interpretation below).
-
-```{r, include = T, fig.height = 4}
-gg_gene_sample_hist
-```
-
-**Example interpretation:** The bar between 90% and 100% shows about 200 genes.  This means that approximately 200 genes were covered in at least 90% of panels.  Likewise, there were nearly 300 genes which were covered in under 10% of samples.
-
-Observations:
-
-- There are only `r n_genes_total_coverage` genes covered by every panel.  For our clinico-genomic analyses analyses it might be better to include genes covered by **most** panels to gather a larger set.  Two natural cut points based on the graph above may be:
-  - Genes covered by at least 90% of panels: `r n_genes_90_cov`.
-  - Genes covered by at least 70% of panels: `r n_genes_70_cov`.
-  - Keep in mind that some of these will have too few positives to be used, further reducing the numbers of genes included.  We'll describe this in subsequent sections.
-- The majority of genes are covered by under 50% of samples.  These will almost certainly need to be excluded for clinico-genomic analyses due to the degree of missingness.
-
-
-
-
-```{r}
-library(colorspace)
-
-dft_onco_impact %<>% 
-  mutate(n_div = if_else(
-    oncogenic %in% c("Oncogenic", "Likely Oncogenic"),
-    n,
-    -n)
-  ) %>%
-  arrange(type, oncogenic)
-
-# hcl_palettes("diverging", n = 5, plot = T)
-pal_onco <- diverging_hcl(
-  palette = "Tropic", n = 5
-)
-
-
-
-
-gg_onco_impact <- ggplot(
-  dft_onco_impact,
-  aes(x = n_div, fill = oncogenic, y = type)
-) + 
-  geom_col(
-    position = "stack", orientation = 'y'
-  ) +
-  scale_fill_manual(
-    values = pal_onco,
-    name = NULL
-  ) +
-  guides(
-    fill = guide_legend(reverse = T)
-  ) + 
-  labs(
-    x = "Alterations (bulk count)",
-    title = "Oncogenic annotation with OncoKB"
-  ) + 
-  theme_classic() + 
-  theme(
-    legend.position = "bottom",
-    plot.title.position = "plot"
-  )
-```
 
 ### R2.2.1 Oncogenic annotation impact
 
