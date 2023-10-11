@@ -221,6 +221,48 @@ dft_gene_test %<>%
   left_join(., dft_gp_all, by = "cpt_seq_assay_id",
             relationship = "many-to-many")
 
+# First thing:  Annotate gene tests with any alteration, oncogenic alteration.
+dft_alt_any <- dft_alt %>% 
+  group_by(sample_id, hugo) %>%
+  summarize(
+    any_alt = T,
+    any_alt_onco = (
+      sum(
+        oncogenic %in% c("Likely Oncogenic", "Oncogenic"),
+        na.rm = T
+      ) 
+      >= 1),
+    .groups = "drop"
+  ) 
+
+dft_gene_test_any_alt <- left_join(
+  rename(dft_gene_test, sample_id = cpt_genie_sample_id),
+  dft_alt_any,
+  by = c("sample_id", "hugo")
+) 
+
+dft_gene_test_any_alt %<>%
+  select(sample_id, record_id, ca_seq, cpt_seq_assay_id, sample_type,
+         hugo, tested, any_alt, any_alt_onco) %>%
+  mutate(
+    any_alt = if_else(is.na(any_alt), F, any_alt),
+    any_alt_onco = if_else(is.na(any_alt_onco), F, any_alt_onco)
+  )
+
+# put the dataset keys first:
+dft_gene_test_any_alt %<>%
+  select(sample_id, hugo, everything())
+  
+readr::write_rds(
+  dft_gene_test_any_alt,
+  file = here('data', 'genomic', 'gene_test_any_alt.rds')
+)
+
+
+
+
+
+
 dft_gene_test %<>%
   select(
     sample_id = cpt_genie_sample_id, 
@@ -246,34 +288,6 @@ dft_gene_test %<>%
   filter(test_logical) %>%
   select(-c(test_type, test_logical))
 
-# Here we do a diversion to investigate something:  Are there samples here
-#  which were NOT tested for an alteration but show it anyway.
-# dft_gene_test_true <- dft_gene_test %>% filter(test_logical)
-# 
-# set.seed(130)
-# chk_untested_but_positive <- anti_join(
-#   dft_alt,
-#   dft_gene_test_true,
-#   by = c("sample_id", "hugo", "alt_type")
-# ) # %>%
-#   group_by(alt_type) %>%
-#   arrange(desc(!(oncogenic %in% "Unknown"))) %>% 
-#   slice(1:3) %>%
-#   ungroup(.)
-# 
-# chk_untested_but_positive %>% 
-#   slice(c(2,3,4,5,6,7)) %>%
-#   select(sample_id, hugo, alt_type, oncogenic, highest_level, fusion_desc)
-# 
-# vec_ubp_sample_id <- chk_untested_but_positive %>%
-#   filter(!(alt_type %in% "Fusion")) %>%
-#   pull(sample_id) 
-# dft_cpt %>% 
-#   filter(cpt_genie_sample_id %in% vec_ubp_sample_id) %>% 
-#   tabyl(cpt_seq_assay_id)
-
-# Bottom line from the above: Yep.  Sent a note to Sage team.
-
 
 
 dft_gene_test <- dft_alt %>% 
@@ -286,11 +300,13 @@ dft_gene_test <- dft_alt %>%
     by = c("sample_id", "hugo", "alt_type")
   )
 
+
 # Not 100% sure this is needed, but it can't hurt:
 readr::write_rds(
   x = dft_gene_test,
-  file = here('data', 'genomic', 'gene_test_index.rds')
+  file = here('data', 'genomic', 'gene_test_index_by_type.rds')
 )
+
 
 
 n_sample <- nrow(dft_cpt)

@@ -61,7 +61,12 @@ dft_gp_all <- read_wrap_geno('gene_panel_all.rds')
 dft_gp_sum <- read_wrap_geno('gene_panel_sum.rds')
 dft_gp_by_gene <- read_wrap_geno('gene_panel_by_gene.rds')
 dft_onco_impact <- read_wrap_geno('oncokb_impact.rds')
-dft_alterations <- read_wrap_geno('oncokb_impact_by_gene.rds')
+
+dft_alt <- read_wrap_geno('alterations.rds')
+
+dft_gt_any_alt <- read_wrap_geno(
+  'gene_test_any_alt.rds'
+)
 
 
 ```
@@ -400,7 +405,7 @@ genes_panel_limited <- dft_gp_all_limited %>%
 ```
 
 
-### R2.1.3b Panel coverage, limited
+### *R2.1.3b Panel coverage, limited
 
 Same as R2.1.2a except we limit to genes with at least one alteration in the dataset, and genes that are covered in the panels used in at least 50% of samples.  This selection brings us down to `r genes_panel_limited` genes, from the original `r genes_panel`.
 
@@ -463,7 +468,7 @@ n_pct_str <- function(n, d, show_d = F, digits = 2, na = "") {
 
 n_pct_str(9, 30)
 
-dft_alt_wide <- dft_alterations %>%
+dft_gene_oncokb_wide <- dft_gene_oncokb %>%
   select(-pct_altered) %>%
   pivot_wider(
     names_from = "filter",
@@ -482,7 +487,7 @@ dft_alt_wide <- dft_alterations %>%
 
 
 gg_onco_mut <- ggplot(
-  data = dft_alt_wide,
+  data = dft_gene_oncokb_wide,
   aes(x = Raw_pct, y = OncoKB_pct, text = plt_lab,
       color = n_tested_this_gene)
 ) + 
@@ -511,7 +516,7 @@ plt_onco_mut <- plotly::ggplotly(gg_onco_mut, tooltip ="text")
 
 ```
 
-## R 2.2.2 Oncogenic impact on mutations
+### R2.2.2 Oncogenic impact on mutations
 
 ```{r, include = T}
 plt_onco_mut
@@ -519,6 +524,98 @@ plt_onco_mut
 
 
 
+
+
+```{r}
+dft_inst_freq <- dft_gt_any_alt %>%
+  select(
+    sample_id,
+    hugo,
+    tested,
+    any_alt,
+    any_alt_onco
+  ) %>%
+  left_join(
+    .,
+    select(
+      dft_cpt, 
+      sample_id = cpt_genie_sample_id,
+      institution
+    ),
+    by = "sample_id",
+    relationship = 'many-to-one'
+  )
+
+dft_inst_freq %<>%
+  group_by(institution, hugo) %>%
+  summarize(
+    n_tested = sum(tested, na.rm = T),
+    n_alt = sum(any_alt, na.rm = T),
+    n_alt_onco = sum(any_alt_onco, na.rm = T),
+    
+    prop_alt = n_alt/n_tested,
+    prop_alt_onco = n_alt_onco/n_tested,
+    .groups = "drop"
+  ) 
+
+dft_inst_freq_all <- dft_inst_freq %>%
+  group_by(hugo) %>%
+  summarize(
+    across(
+      .cols = c(n_alt, n_alt_onco, n_tested),
+      .fns = sum
+    ),
+    .groups = 'drop'
+  ) %>%
+  mutate(
+    prop_alt = n_alt/n_tested,
+    prop_alt_onco = n_alt_onco/n_tested
+  ) %>%
+  mutate(institution = "All")
+    
+
+# find the genes that are most freqently altered, limited
+# to those with over 600
+vec_alt_most_common <- dft_inst_freq_all %>%
+  filter(n_tested > 0.5*max(n_tested)) %>%
+  arrange(desc(prop_alt)) %>%
+  slice(1:20) %>%
+  pull(hugo)
+
+dfp_inst_freq <- bind_rows(
+  dft_inst_freq_all,
+  dft_inst_freq
+) %>%
+  filter(hugo %in% vec_alt_most_common) %>%
+  mutate(
+      institution = forcats::fct_inorder(institution),
+      hugo = factor(hugo, levels = vec_alt_most_common)
+  )
+
+
+
+gg_inst_alt <- plot_alt_by_inst(
+  dat = dfp_inst_freq
+)
+
+gg_inst_alt_onco <- plot_alt_by_inst(
+  dat = dfp_inst_freq,
+  prop_var = "prop_alt_onco",
+  plot_subtitle = "Only oncogenic alterations"
+)
+
+```
+  
+### R2.3.1 Alteration frequency by site
+
+```{r, include = T}
+gg_inst_alt
+```
+
+
+```{r, include = T}
+gg_inst_alt_onco
+```
 
 
 ## Upcoming
