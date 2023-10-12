@@ -186,7 +186,7 @@ lev_path <- c(
   "None"
 )
 
-dft_alt %>% 
+dft_alt %<>% 
   left_join(
     .,
     select(dft_sv_pathways, hugo, pathway = ss_name),

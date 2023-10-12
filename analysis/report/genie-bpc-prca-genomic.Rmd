@@ -377,49 +377,12 @@ The table version of the limited set above would be the same except for the `Gen
 
 
 
-```{r}
-dft_onco_impact %<>% 
-  mutate(n_div = if_else(
-    oncogenic %in% c("Oncogenic", "Likely Oncogenic"),
-    n,
-    -n)
-  ) %>%
-  arrange(type, oncogenic)
-
-# hcl_palettes("diverging", n = 5, plot = T)
-pal_onco <- diverging_hcl(
-  palette = "Tropic", n = 5
-)
-
-
-
-
-gg_onco_impact <- ggplot(
+```{r, include = T}
+gg_onco_impact <- plot_alt_onco_impact(
   dft_onco_impact,
-  aes(x = n_div, fill = oncogenic, y = type)
-) + 
-  geom_col(
-    position = "stack", orientation = 'y'
-  ) +
-  scale_fill_manual(
-    values = pal_onco,
-    name = NULL
-  ) +
-  guides(
-    fill = guide_legend(reverse = T)
-  ) + 
-  labs(
-    x = "Alterations (bulk count)",
-    title = "Oncogenic annotation with OncoKB"
-  ) + 
-  theme_classic() + 
-  theme(
-    legend.position = "bottom",
-    plot.title.position = "plot"
-  )
+  y_var = "type"
+)
 ```
-
-
 
 
 ### R2.2.1 Oncogenic annotation impact
@@ -437,18 +400,44 @@ Observations:
 
 
 
+```{r}
+gg_onco_impact_pathway <- dft_alt %>% 
+  count(pathway, oncogenic) %>%
+  group_by(pathway) %>%
+  mutate(
+    prop = n / sum(n, na.rm = T),
+    y_dummy = "a"
+  ) %>%
+  ungroup(.) %>%
+  plot_alt_onco_impact(
+    .,
+    x_var = 'prop',
+    x_lab = "Alteration (proportion)",
+    y_var = "y_dummy",
+    plot_subtitle = "Pathways: Gene lists from Sanchez-Vega (2018)"
+  ) +
+  facet_wrap(
+    vars(pathway), 
+    scales = "free",
+    ncol = 3
+  ) +
+  theme(
+    axis.ticks.y = element_blank(),
+    axis.text.y = element_blank()
+  ) 
+```
 
 
 
 ### R2.2.2 Onco. impact by pathways
 
-```{r}
+The pathways here are very cursory - just using the gene lists from Sanchez-Vega (2018).  The goal of this analysis is just context for the OncoKB annotations - we would expect well known clinically important pathways like p53 to be more heavily annotated than genes that are not well categorized into a pathway.
 
+```{r, include = T}
+gg_onco_impact_pathway
 ```
 
-
-
-
+**Observation:** Overall the pathways I was very aware of (TP53, MYC, PI3K) were frequently annotated as oncogenic.  I was surprised that the alterations with no noted pathway were more frequently annotated as oncogenic than some in this list, like RTK_RAS and HIPPO.
 
 
 
