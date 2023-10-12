@@ -177,10 +177,35 @@ dft_alt %<>%
     everything()
   )
 
+# Add in pathway data to the alterations dataset.
+dft_sv_pathways <- readr::read_rds(
+  here('data-raw', 'genomic', 'sanchez-vega_gene_pathways.rds')
+)
+lev_path <- c(
+  (dft_sv_pathways$ss_name %>% unique),
+  "None"
+)
+
+dft_alt %>% 
+  left_join(
+    .,
+    select(dft_sv_pathways, hugo, pathway = ss_name),
+    by = "hugo",
+    relationship = 'many-to-one'
+  ) %>%
+  mutate(
+    pathway = if_else(is.na(pathway), "None", pathway),
+    pathway = factor(pathway, levels = lev_path)
+  )
+
 readr::write_rds(
   x = dft_alt,
   file = here('data', 'genomic', 'alterations.rds')
 )
+
+
+
+
 
 gene_gte1_alt <- dft_alt %>% 
   pull(hugo) %>% unique %>% sort

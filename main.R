@@ -27,6 +27,7 @@ rmarkdown::render(
 ###########
 # Genomic #
 ###########
+source(here('analysis', 'script', 'input_sanchez.R')) # manual save of pathways.
 # Need to do once:
 source(here('analysis', 'script', 'reshape_cna.R'))
 # # run annotate_oncokb.sh from the command line.  See comments on enviro vars.

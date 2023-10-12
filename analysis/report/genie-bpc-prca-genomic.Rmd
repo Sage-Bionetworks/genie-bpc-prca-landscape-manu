@@ -230,52 +230,6 @@ Observations:
 
 
 
-```{r}
-library(colorspace)
-
-dft_onco_impact %<>% 
-  mutate(n_div = if_else(
-    oncogenic %in% c("Oncogenic", "Likely Oncogenic"),
-    n,
-    -n)
-  ) %>%
-  arrange(type, oncogenic)
-
-# hcl_palettes("diverging", n = 5, plot = T)
-pal_onco <- diverging_hcl(
-  palette = "Tropic", n = 5
-)
-
-
-
-
-gg_onco_impact <- ggplot(
-  dft_onco_impact,
-  aes(x = n_div, fill = oncogenic, y = type)
-) + 
-  geom_col(
-    position = "stack", orientation = 'y'
-  ) +
-  scale_fill_manual(
-    values = pal_onco,
-    name = NULL
-  ) +
-  guides(
-    fill = guide_legend(reverse = T)
-  ) + 
-  labs(
-    x = "Alterations (bulk count)",
-    title = "Oncogenic annotation with OncoKB"
-  ) + 
-  theme_classic() + 
-  theme(
-    legend.position = "bottom",
-    plot.title.position = "plot"
-  )
-```
-
-
-
 
 
 
@@ -423,6 +377,50 @@ The table version of the limited set above would be the same except for the `Gen
 
 
 
+```{r}
+dft_onco_impact %<>% 
+  mutate(n_div = if_else(
+    oncogenic %in% c("Oncogenic", "Likely Oncogenic"),
+    n,
+    -n)
+  ) %>%
+  arrange(type, oncogenic)
+
+# hcl_palettes("diverging", n = 5, plot = T)
+pal_onco <- diverging_hcl(
+  palette = "Tropic", n = 5
+)
+
+
+
+
+gg_onco_impact <- ggplot(
+  dft_onco_impact,
+  aes(x = n_div, fill = oncogenic, y = type)
+) + 
+  geom_col(
+    position = "stack", orientation = 'y'
+  ) +
+  scale_fill_manual(
+    values = pal_onco,
+    name = NULL
+  ) +
+  guides(
+    fill = guide_legend(reverse = T)
+  ) + 
+  labs(
+    x = "Alterations (bulk count)",
+    title = "Oncogenic annotation with OncoKB"
+  ) + 
+  theme_classic() + 
+  theme(
+    legend.position = "bottom",
+    plot.title.position = "plot"
+  )
+```
+
+
+
 
 ### R2.2.1 Oncogenic annotation impact
 
@@ -441,86 +439,16 @@ Observations:
 
 
 
+
+### R2.2.2 Onco. impact by pathways
+
 ```{r}
-form_f <- function(x, digits = 0) {
-    formatC(x, format = 'f', digits = digits)
-}
-n_pct_str <- function(n, d, show_d = F, digits = 2, na = "") {
-    if (any((n %% 1 != 0) | (d %% 1 != 0), na.rm = T)) {
-        stop("n, d must be integers (n %% 1 == 0 must be true)")
-    }
-    if (length(na) > 1) {
-        stop("na must be a length 1 vector (or NULL)")
-    }
-
-    pct <- n/d
-    if (show_d) {
-        rtn <- glue::glue("{n}/{d} ({form_f(pct*100, digits = digits)}%)")
-    } else {
-        rtn <- glue::glue("{n} ({form_f(pct*100, digits = digits)}%)")
-    }
-
-    if (!is.null(na)) {
-        rtn[is.na(n)] <- glue::glue("{na}")
-    }
-    return(rtn)
-}
-
-n_pct_str(9, 30)
-
-dft_gene_oncokb_wide <- dft_gene_oncokb %>%
-  select(-pct_altered) %>%
-  pivot_wider(
-    names_from = "filter",
-    values_from = "n_altered"
-  ) %>%
-  mutate(
-    plt_lab = glue(
-      "Gene: {hugo}
-     Number of samples tested: {n_tested_this_gene}
-     Number (%) altered raw: {n_pct_str(Raw, n_tested_this_gene)}
-     Number (%) altered after oncoKB {n_pct_str(OncoKB, n_tested_this_gene)}"
-    ),
-    OncoKB_pct = OncoKB/n_tested_this_gene,
-    Raw_pct = Raw/n_tested_this_gene
-  )
-
-
-gg_onco_mut <- ggplot(
-  data = dft_gene_oncokb_wide,
-  aes(x = Raw_pct, y = OncoKB_pct, text = plt_lab,
-      color = n_tested_this_gene)
-) + 
-  geom_point(size = 0.75) +
-  theme_bw() +
-  labs(
-    y = "After Oncogenic filter",
-    x = "Before Oncogenic filter",
-    title = "Alteration frequencies by gene"
-  ) + 
-  scale_x_continuous(
-    labels = scales::percent
-  ) + 
-  scale_y_continuous(
-    labels = scales::percent
-  ) +
-  scale_color_viridis_c(begin = 0.2, end = 0.8, name = "Samples tested for this gene") + 
-  theme(
-    legend.position = "bottom"
-  )
-
-
-
-plt_onco_mut <- plotly::ggplotly(gg_onco_mut, tooltip ="text")
-
 
 ```
 
-### R2.2.2 Oncogenic impact on mutations
 
-```{r, include = T}
-plt_onco_mut
-```
+
+
 
 
 
@@ -595,22 +523,39 @@ dfp_inst_freq <- bind_rows(
 
 
 gg_inst_alt <- plot_alt_by_inst(
-  dat = dfp_inst_freq
+  dat = dfp_inst_freq,
+  point_size = 2
 )
 
 gg_inst_alt_onco <- plot_alt_by_inst(
   dat = dfp_inst_freq,
   prop_var = "prop_alt_onco",
-  plot_subtitle = "Only oncogenic alterations"
+  plot_subtitle = "Only oncogenic alterations",
+  point_size = 2
 )
 
 ```
   
-### R2.3.1 Alteration frequency by site
+### *R2.3.1a Alteration frequency by institution
+
+The following plot show the percentage of tested samples with an alteration of any kind.  The black square shows the whole cohort number, and colored dots show the numbers at each institution.  
+
+This plot is limited to genes tested in more than 50% of samples, and only the top 20 most frequently altered genes are shown.
 
 ```{r, include = T}
 gg_inst_alt
 ```
+
+**Observations:**
+
+- Some genes are missing dots for institutions because the gene was never tested there.  An example is MGA at VICC and UHN - not included in any panel in this dataset.
+- Most of the big outliers are at the small institutions.
+- Even at DFCI and MSK, proportions of altered samples can be quite different depending on the gene.  An example that remains in the next plot is MYC, where DFCI has 2% of tested samples altered and MSK has 9%.
+
+### *R2.3.1b Alteration frequency by institution (oncogenic)
+
+Same as the above plot, except we examine include only alterations which were annotated as Likely Oncogenic or Oncogenic by OncoKB.
+
 
 
 ```{r, include = T}
@@ -618,12 +563,21 @@ gg_inst_alt_onco
 ```
 
 
+
+
+
+
+
+
+
 ## Upcoming
 
-- Assessment of the impact on the frequency of alteration for each gene with and without oncoKB filtering for CNA/Fusions.
 - Further charcterization of alterations after we decide on filtering:
   - Consequence (missense, frameshift, synonymous, etc).
   - Level of evidence (for likely oncogenic or oncogenic mutations).
+- Lookup table for genes.
+- Co-occurence
+- Pathways
 
 
 

@@ -4,7 +4,8 @@ plot_alt_by_inst <- function(
     prop_var = "prop_alt",
     plot_title = "Alteration frequencies by institution",
     plot_subtitle = "Any alteration - oncogenic or not.",
-    reorder = T
+    reorder_by_prop = T,
+    point_size = 1
 ) {
   
   dat %<>% mutate(
@@ -14,7 +15,7 @@ plot_alt_by_inst <- function(
     )
   )
   
-  if (reorder) {
+  if (reorder_by_prop) {
     # only works because "all" is first:
     dat %<>%
       arrange(institution, desc(.data[[prop_var]])) %>%
@@ -32,24 +33,22 @@ plot_alt_by_inst <- function(
     )
   ) + 
     geom_hline(yintercept = 0:50, color = "gray90") + 
-    geom_point() + 
-    coord_cartesian(
-      xlim = c(-0.01,NA)
-    ) +
+    geom_point(alpha = 0.8) + 
     scale_x_continuous(
       breaks = seq(0, 50, by = 5)/100,
       labels = paste(seq(0, 50, by = 5), "%"),
       name = "Proportion altered",
-      expand = c(0,0)
+      expand = expansion(add = 0, mult = 0.02)
     ) + 
     scale_shape_manual(
       values = c(19, 15),
       guide = 'none'
     ) + 
     scale_color_manual(
-      values = c("black", '#ee7733', '#0077bb', '#33bbee', '#ee3377')
+      values = c("gray20", '#ee7733', '#0077bb', '#33bbee', '#ee3377')
     ) + 
-    scale_size_manual(values = c(1,2), guide = "none") + 
+    # point_size is a scaling factor here.
+    scale_size_manual(values = point_size*c(1,2), guide = "none") + 
     scale_y_discrete(
       limits = rev,
       name = NULL
