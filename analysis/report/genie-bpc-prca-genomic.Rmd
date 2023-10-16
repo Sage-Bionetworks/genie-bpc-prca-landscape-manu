@@ -402,7 +402,7 @@ Observations:
 
 ```{r}
 gg_onco_impact_pathway <- dft_alt %>% 
-  count(pathway, oncogenic) %>%
+  dplyr::count(pathway, oncogenic) %>%
   group_by(pathway) %>%
   mutate(
     prop = n / sum(n, na.rm = T),
@@ -429,7 +429,7 @@ gg_onco_impact_pathway <- dft_alt %>%
 
 
 
-### R2.2.2 Onco. impact by pathways
+### *R2.2.2 Onco. impact by pathways
 
 The pathways here are very cursory - just using the gene lists from Sanchez-Vega (2018).  The goal of this analysis is just context for the OncoKB annotations - we would expect well known clinically important pathways like p53 to be more heavily annotated than genes that are not well categorized into a pathway.
 
@@ -438,6 +438,37 @@ gg_onco_impact_pathway
 ```
 
 **Observation:** Overall the pathways I was very aware of (TP53, MYC, PI3K) were frequently annotated as oncogenic.  I was surprised that the alterations with no noted pathway were more frequently annotated as oncogenic than some in this list, like RTK_RAS and HIPPO.
+
+
+
+
+
+```{r, eval = F}
+# Note:  This section is incomplete - I didn't get to it, so this code is an irrelevant fragment if found long from now.
+dft_alt %>% 
+  mutate(
+    highest_level = if_else(
+      is.na(highest_level),
+      "None"
+    )
+  ) %>%
+  tabyl(highest_level)
+```
+
+
+### *R2.2.2 OncoKB levels of evidence
+
+The pathways here are very cursory - just using the gene lists from Sanchez-Vega (2018).  The goal of this analysis is just context for the OncoKB annotations - we would expect well known clinically important pathways like p53 to be more heavily annotated than genes that are not well categorized into a pathway.
+
+```{r, include = T}
+gg_onco_impact_pathway
+```
+
+**Observation:** Overall the pathways I was very aware of (TP53, MYC, PI3K) were frequently annotated as oncogenic.  I was surprised that the alterations with no noted pathway were more frequently annotated as oncogenic than some in this list, like RTK_RAS and HIPPO.
+
+
+
+
 
 
 
@@ -555,6 +586,152 @@ gg_inst_alt_onco
 
 
 
+```{r}
+dft_pathway_bin <- dft_alt %>% 
+  group_by(sample_id, pathway) %>%
+  summarize(exists = n() >= 1, .groups = "drop") %>%
+  pivot_wider(
+    names_from = pathway,
+    values_from = exists
+  ) 
+
+# Add in rows where nothing at all was found:
+dft_pathway_bin <- dft_cpt %>%
+  select(sample_id = cpt_genie_sample_id) %>%
+  left_join(dft_pathway_bin, by = "sample_id")
+  
+dft_pathway_bin %<>%
+  mutate(
+    across(
+      .cols = -sample_id,
+      .fns = (function(x) {
+        x <- as.integer(x)
+        x <- if_else(is.na(x), 0L, x)
+      })
+    )
+  ) %>%
+  # just ordering:
+  select(sample_id, (levels(dft_alt$pathway)))
+
+mat_pathway_pct_agree <- dft_pathway_bin %>%
+  select(-sample_id, -None) %>%
+  pct_agree_mat(.)
+
+gg_pathway_mat_pct_agree <- plot_mat_metric(
+  mat_pathway_pct_agree,
+  fill_label = "Percentage Agreement",
+  plot_title = "Pathway co-occurence"
+)
+
+mat_pathway_mut_excl <- dft_pathway_bin %>%
+  select(-sample_id, -None) %>%
+  test_mut_excl(.)
+
+gg_pathway_mat_mut_excl <- plot_mat_metric(
+  mat_pathway_mut_excl,
+  fill_label = "Mutual exclusivity test [-log10(p-value)]",
+  plot_title = "Pathway co-occurence",
+  vir_opt = "viridis",
+  log_fill = T
+)
+
+```
+
+### *R2.4.1 Co-occurence, pathway
+
+This section is a work in progress.
+
+The first plot shows a simple, easy to interpret metric:  Percentage agreement between two variables indexing over the samples.  This is for sanity checking the test results, it should not go in a publication.  The percentage agreement is high because most samples do not have an alteration for any given pathway (so they agree):
+
+```{r, include = T}
+gg_pathway_mat_pct_agree
+```
+
+This second plot shows a test of mutual exclusivity (and the associated P value).  This uses the Poisson-binomial distribution, which differs from the default `maftools` implementation.  The motivation is taking into account that some samples have a higher mutation rate than others.
+
+```{r, include = T}
+gg_pathway_mat_mut_excl
+```
+
+The work in progress part is getting this into a divergent color scale which makes mutual exclusivity and co-occurence more readable to our audience.
+
+
+
+
+
+
+
+
+```{r}
+dft_top_gene_bin <- dft_alt %>% 
+  filter(hugo %in% vec_alt_most_common[1:20]) %>%
+  group_by(sample_id, hugo) %>%
+  summarize(exists = n() >= 1, .groups = "drop") %>%
+  pivot_wider(
+    names_from = hugo,
+    values_from = exists
+  ) 
+
+# Add in rows where nothing at all was found:
+dft_top_gene_bin <- dft_cpt %>%
+  select(sample_id = cpt_genie_sample_id) %>%
+  left_join(dft_top_gene_bin, by = "sample_id")
+  
+dft_top_gene_bin %<>%
+  mutate(
+    across(
+      .cols = -sample_id,
+      .fns = (function(x) {
+        x <- as.integer(x)
+        x <- if_else(is.na(x), 0L, x)
+      })
+    )
+  ) %>%
+  # just ordering:
+  select(sample_id, vec_alt_most_common[1:20])
+
+mat_top_gene_pct_agree <- dft_top_gene_bin %>%
+  select(-sample_id) %>%
+  pct_agree_mat(.)
+
+gg_top_gene_mat_pct_agree <- plot_mat_metric(
+  mat_top_gene_pct_agree,
+  fill_label = "Percentage Agreement",
+  plot_title = "Gene alteration co-occurence",
+  rotate_x_labs = T
+)
+
+mat_top_gene_mut_excl <- dft_top_gene_bin %>%
+  select(-sample_id) %>%
+  test_mut_excl(.)
+
+gg_top_gene_mat_mut_excl <- plot_mat_metric(
+  mat_top_gene_mut_excl,
+  fill_label = "Mutual exclusivity test [-log10(p-value)]",
+  plot_title = "Gene alteration co-occurence",
+  vir_opt = "viridis",
+  log_fill = T,
+  rotate_x_labs = T
+)
+
+```
+
+
+### *R2.4.2 Co-occurence, top genes
+
+Again, we start with the simple metric for sanity check:
+
+```{r, include = T}
+gg_top_gene_mat_pct_agree
+```
+
+And the unadjusted P value testing mutual exclusivity:
+
+```{r, include = T}
+gg_top_gene_mat_mut_excl
+```
+
+
 
 
 
@@ -565,8 +742,7 @@ gg_inst_alt_onco
   - Consequence (missense, frameshift, synonymous, etc).
   - Level of evidence (for likely oncogenic or oncogenic mutations).
 - Lookup table for genes.
-- Co-occurence
-- Pathways
+
 
 
 

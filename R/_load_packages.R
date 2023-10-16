@@ -13,6 +13,8 @@ library(vctrs)
 library(forcats)
 library(glue)
 
+library(Rediscover)
+
 library(ggplot2)
 library(ggrepel)
 library(ggtext)
