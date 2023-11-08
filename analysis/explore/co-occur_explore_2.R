@@ -65,7 +65,7 @@ somaticInteractions(
 somaticInteractions(
   maf = laml,
   top = 5,
-  plotPadj = T
+  plotPadj = F
 )
 
 # Two things we haven't touched on yet:
@@ -89,4 +89,66 @@ laml@gene.summary %>% head(., 10) %>% select(Hugo_Symbol, AlteredSamples)
 #   gives me identical results to what they had.  Probably time to just make
 #   a function I think.
 
+laml_wide <- laml@data %>% 
+  as_tibble(.) %>%
+  select(Hugo_Symbol, Tumor_Sample_Barcode) %>%
+  mutate(
+    alt = 1,
+    Tumor_Sample_Barcode = as.character(Tumor_Sample_Barcode)
+  ) %>%
+  group_by(Hugo_Symbol, Tumor_Sample_Barcode) %>%
+  slice(1) %>%
+  ungroup(.) %>%
+  pivot_wider(
+    names_from = Hugo_Symbol,
+    values_from = alt,
+    values_fill = 0
+  )
+
+# Just to make this all perfect we'll add the one sample with no alterations:
+laml_wide %<>%
+  add_row(
+    Tumor_Sample_Barcode = "TCGA-AB-2903"
+  ) %>%
+  mutate(
+    across(
+      .cols = -Tumor_Sample_Barcode,
+      .fns = (function(x) {
+        if_else(is.na(x), 0, x)
+      })
+    )
+  )
+  
+
+get_binary_feature_pos(
+  laml_wide,
+  ignore_cols = "Tumor_Sample_Barcode"
+)
+
+
+dft_co_me <- test_fisher_co_occur(
+  laml_wide,
+  ignore_cols = "Tumor_Sample_Barcode"
+)
+
+
+
+dft_co_me %<>%
+  mutate(
+    co_me_lab = glue("{ct_11} / {ct_10+ct_01}")
+  )
+
+plot_binary_association(
+  dat = dft_co_me,
+  x_var = "var1_lab",
+  y_var = "var2_lab",
+  show_p_sig = T,
+  label_var = "co_me_lab"
+) 
+
+
+
+fisher_test_helper(
+  17, 35, 16, 125
+)
 
