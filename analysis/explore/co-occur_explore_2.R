@@ -65,7 +65,7 @@ somaticInteractions(
 somaticInteractions(
   maf = laml,
   top = 5,
-  plotPadj = F
+  plotPadj = T
 )
 
 # Two things we haven't touched on yet:
@@ -135,7 +135,8 @@ dft_co_me <- test_fisher_co_occur(
 
 dft_co_me %<>%
   mutate(
-    co_me_lab = glue("{ct_11} / {ct_10+ct_01}")
+    co_me_lab = glue("{ct_11} / {ct_10+ct_01}"),
+    p_value_adj = p.adjust(p.value, method = "BH")
   )
 
 plot_binary_association(
@@ -143,7 +144,8 @@ plot_binary_association(
   x_var = "var1_lab",
   y_var = "var2_lab",
   show_p_sig = T,
-  label_var = "co_me_lab"
+  label_var = "co_me_lab",
+  pval_var = "p_value_adj"
 ) 
 
 

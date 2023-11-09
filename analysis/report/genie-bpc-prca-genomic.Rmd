@@ -359,7 +359,7 @@ genes_panel_limited <- dft_gp_all_limited %>%
 ```
 
 
-### *R2.1.3b Panel coverage, limited
+### R2.1.3b Panel coverage, limited
 
 Same as R2.1.2a except we limit to genes with at least one alteration in the dataset, and genes that are covered in the panels used in at least 50% of samples.  This selection brings us down to `r genes_panel_limited` genes, from the original `r genes_panel`.
 
@@ -429,7 +429,7 @@ gg_onco_impact_pathway <- dft_alt %>%
 
 
 
-### *R2.2.2 Onco. impact by pathways
+### *R2.2.2a Onco. impact by pathways - proportions
 
 The pathways here are very cursory - just using the gene lists from Sanchez-Vega (2018).  The goal of this analysis is just context for the OncoKB annotations - we would expect well known clinically important pathways like p53 to be more heavily annotated than genes that are not well categorized into a pathway.
 
@@ -437,36 +437,148 @@ The pathways here are very cursory - just using the gene lists from Sanchez-Vega
 gg_onco_impact_pathway
 ```
 
-**Observation:** Overall the pathways I was very aware of (TP53, MYC, PI3K) were frequently annotated as oncogenic.  I was surprised that the alterations with no noted pathway were more frequently annotated as oncogenic than some in this list, like RTK_RAS and HIPPO.
+**Observation:** Overall the pathways I was aware of (TP53, MYC, PI3K) were frequently annotated as oncogenic.  I was surprised that the alterations with no noted pathway were more frequently annotated as oncogenic than some in this list, like RTK_RAS and HIPPO.
 
 
 
 
 
-```{r, eval = F}
+
+```{r}
+# Want to reorder the axis in a sensible way:
+vec_alt_onco_count_fac_lev <- dft_alt %>%  
+  filter(pathway != "None") %>%
+  dplyr::count(pathway, oncogenic) %>%
+  group_by(pathway) %>%
+  summarize(
+    oncogenic_n = sum(n[oncogenic %in% c("Likely Oncogenic", "Oncogenic")]),
+    total_n = sum(n),
+    new_factor_score = oncogenic_n - (total_n-oncogenic_n)
+  ) %>%
+  arrange(desc(new_factor_score)) %>%
+  pull(pathway) %>%
+  as.character(.)
+
+gg_onco_impact_pathway_counts <- dft_alt %>% 
+  filter(pathway != "None") %>%
+  mutate(
+    pathway = factor(
+      pathway, levels = vec_alt_onco_count_fac_lev
+    )
+  ) %>%
+  dplyr::count(pathway, oncogenic) %>%
+  mutate(
+    y_dummy = "a"
+  ) %>%
+  ungroup(.) %>%
+  plot_alt_onco_impact(
+    .,
+    x_var = 'n',
+    x_lab = "Alterations (count)",
+    y_var = "pathway",
+    plot_subtitle = "Pathways: Gene lists from Sanchez-Vega (2018)"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title.position = "plot"
+  )
+```
+
+
+### R2.2.2b Onco impact by pathways - counts
+
+The following figure shows the same data as the previous as raw counts rather than proportions.
+
+```{r, include = T}
+gg_onco_impact_pathway_counts 
+```
+
+
+
+
+
+
+
+```{r, eval = T}
 # Note:  This section is incomplete - I didn't get to it, so this code is an irrelevant fragment if found long from now.
-dft_alt %>% 
+dft_levels_of_evidence <- dft_alt %>% 
+  filter(
+    oncogenic %in% c(
+      "Likely Oncogenic",
+      "Oncogenic"
+    )
+  ) %>%
   mutate(
     highest_level = if_else(
       is.na(highest_level),
-      "None"
+      "None",
+      highest_level
     )
   ) %>%
   tabyl(highest_level)
+
+
 ```
 
 
-### *R2.2.2 OncoKB levels of evidence
+### *R2.2.3 OncoKB levels of evidence
 
-The pathways here are very cursory - just using the gene lists from Sanchez-Vega (2018).  The goal of this analysis is just context for the OncoKB annotations - we would expect well known clinically important pathways like p53 to be more heavily annotated than genes that are not well categorized into a pathway.
+OncoKB levels of evidence deal with the strength of evidence that the gene predicts response to a drug.
+- The highest level is 1, which is for "FDA-recognized biomarker predictive of response to an FDA-approved drug in this indication".  Example in prostate:  CDK12.
+- The levels go down to 4, which represents compelling biological (but not clinical) evidence. Example in prostate:  PTEN.
+
+I don't think this will be of great interest for a paper, but I would like the group to be aware of what information is in OncoKB and available for our use.  Here is a simple table of the level of evidence present for oncogenic alterations in our cohort:
 
 ```{r, include = T}
-gg_onco_impact_pathway
+dft_levels_of_evidence %>%
+  mutate(
+    n_str = glue("{n} ({round(percent*100, 0)}%)")
+  ) %>%
+  select(highest_level, n_str) %>%
+  flextable::flextable(.) %>%
+  autofit(.)
+
 ```
 
-**Observation:** Overall the pathways I was very aware of (TP53, MYC, PI3K) were frequently annotated as oncogenic.  I was surprised that the alterations with no noted pathway were more frequently annotated as oncogenic than some in this list, like RTK_RAS and HIPPO.
+**Note:** Most alterations do not have a level of evidence stated.  This includes some alterations in well known genes like TP53, SPOP, MYC.
 
 
+
+
+
+
+
+
+
+```{r, eval = T}
+# Note:  This section is incomplete - I didn't get to it, so this code is an irrelevant fragment if found long from now.
+dft_mutation_effect <- dft_alt %>% 
+  filter(
+    oncogenic %in% c(
+      "Likely Oncogenic",
+      "Oncogenic"
+    )
+  ) %>%
+  tabyl(mutation_effect)
+
+# dft_mutation_effect %>% group_by(hugo) %>% mutate(nrow_gene = n()) %>% ungroup %>% filter(str_detect(mutation_effect, "^Loss|^Gain")) %>% filter(nrow_gene >= 2) %>% arrange(hugo)
+```
+
+### *R2.2.4 OncoKB gain/loss of function
+
+One more piece of information we have access to with oncogenic genes is whether the alteration is predicted to result in a gain or loss of function.  
+
+The only potential use I can think of for this is if we want to use genes as a predictor, it might be advisable to model gain and loss of function genes separately.  For example, FOXA1 has some predicted gain and some predicted loss.  Here's a simple table of all oncogenic alterations:
+
+```{r, include = T}
+dft_mutation_effect %>%
+  mutate(
+    n_str = glue("{n} ({round(percent*100, 0)}%)")
+  ) %>%
+  select(mutation_effect, n_str) %>%
+  flextable::flextable(.) %>%
+  flextable::autofit(.)
+```
 
 
 
@@ -556,7 +668,7 @@ gg_inst_alt_onco <- plot_alt_by_inst(
 
 ```
   
-### *R2.3.1a Alteration frequency by institution
+### R2.3.1a Alteration frequency by institution
 
 The following plot show the percentage of tested samples with an alteration of any kind.  The black square shows the whole cohort number, and colored dots show the numbers at each institution.  
 
@@ -572,7 +684,7 @@ gg_inst_alt
 - Most of the big outliers are at the small institutions.
 - Even at DFCI and MSK, proportions of altered samples can be quite different depending on the gene.  An example that remains in the next plot is MYC, where DFCI has 2% of tested samples altered and MSK has 9%.
 
-### *R2.3.1b Alteration frequency by institution (oncogenic)
+### R2.3.1b Alteration frequency by institution (oncogenic)
 
 Same as the above plot, except we examine include only alterations which were annotated as Likely Oncogenic or Oncogenic by OncoKB.
 
@@ -581,81 +693,6 @@ Same as the above plot, except we examine include only alterations which were an
 ```{r, include = T}
 gg_inst_alt_onco
 ```
-
-
-
-
-
-```{r}
-dft_pathway_bin <- dft_alt %>% 
-  group_by(sample_id, pathway) %>%
-  summarize(exists = n() >= 1, .groups = "drop") %>%
-  pivot_wider(
-    names_from = pathway,
-    values_from = exists
-  ) 
-
-# Add in rows where nothing at all was found:
-dft_pathway_bin <- dft_cpt %>%
-  select(sample_id = cpt_genie_sample_id) %>%
-  left_join(dft_pathway_bin, by = "sample_id")
-  
-dft_pathway_bin %<>%
-  mutate(
-    across(
-      .cols = -sample_id,
-      .fns = (function(x) {
-        x <- as.integer(x)
-        x <- if_else(is.na(x), 0L, x)
-      })
-    )
-  ) %>%
-  # just ordering:
-  select(sample_id, (levels(dft_alt$pathway)))
-
-mat_pathway_pct_agree <- dft_pathway_bin %>%
-  select(-sample_id, -None) %>%
-  pct_agree_mat(.)
-
-gg_pathway_mat_pct_agree <- plot_mat_metric(
-  mat_pathway_pct_agree,
-  fill_label = "Percentage Agreement",
-  plot_title = "Pathway co-occurence"
-)
-
-mat_pathway_mut_excl <- dft_pathway_bin %>%
-  select(-sample_id, -None) %>%
-  test_mut_excl(.)
-
-gg_pathway_mat_mut_excl <- plot_mat_metric(
-  mat_pathway_mut_excl,
-  fill_label = "Mutual exclusivity test [-log10(p-value)]",
-  plot_title = "Pathway co-occurence",
-  vir_opt = "viridis",
-  log_fill = T
-)
-
-```
-
-### *R2.4.1 Co-occurence, pathway
-
-This section is a work in progress.
-
-The first plot shows a simple, easy to interpret metric:  Percentage agreement between two variables indexing over the samples.  This is for sanity checking the test results, it should not go in a publication.  The percentage agreement is high because most samples do not have an alteration for any given pathway (so they agree):
-
-```{r, include = T}
-gg_pathway_mat_pct_agree
-```
-
-This second plot shows a test of mutual exclusivity (and the associated P value).  This uses the Poisson-binomial distribution, which differs from the default `maftools` implementation.  The motivation is taking into account that some samples have a higher mutation rate than others.
-
-```{r, include = T}
-gg_pathway_mat_mut_excl
-```
-
-The work in progress part is getting this into a divergent color scale which makes mutual exclusivity and co-occurence more readable to our audience.
-
-
 
 
 
@@ -690,46 +727,144 @@ dft_top_gene_bin %<>%
   # just ordering:
   select(sample_id, vec_alt_most_common[1:20])
 
-mat_top_gene_pct_agree <- dft_top_gene_bin %>%
-  select(-sample_id) %>%
-  pct_agree_mat(.)
 
-gg_top_gene_mat_pct_agree <- plot_mat_metric(
-  mat_top_gene_pct_agree,
-  fill_label = "Percentage Agreement",
-  plot_title = "Gene alteration co-occurence",
-  rotate_x_labs = T
+dft_gene_assoc <- test_fisher_co_occur(
+  dat = dft_top_gene_bin,
+  ignore_cols = c("sample_id"),
+  top = 10,
+  alpha = 0.05
 )
 
-mat_top_gene_mut_excl <- dft_top_gene_bin %>%
-  select(-sample_id) %>%
-  test_mut_excl(.)
+dft_gene_assoc %<>%
+  mutate(
+    assoc_lab = glue("{ct_11} / {ct_10+ct_01}"),
+    p_value_adj = p.adjust(p.value, method = "BH"),
+    cont_table_lab = cont_table_lab_help(
+      ct_11 = ct_11,
+      ct_01 = ct_01,
+      ct_10 = ct_10,
+      ct_00 = ct_00
+    )
+  )
 
-gg_top_gene_mat_mut_excl <- plot_mat_metric(
-  mat_top_gene_mut_excl,
-  fill_label = "Mutual exclusivity test [-log10(p-value)]",
-  plot_title = "Gene alteration co-occurence",
-  vir_opt = "viridis",
-  log_fill = T,
-  rotate_x_labs = T
+dft_gene_assoc %<>%
+  mutate(
+    p_value_adj = if_else(p.value < 10^-5, 10^-5, p.value)
+  )
+
+gg_gene_assoc <- plot_binary_association(
+  dat = dft_gene_assoc,
+  x_var = "var1_lab",
+  y_var = "var2_lab",
+  show_p_sig = T,
+  label_var = "cont_table_lab",
+  pval_var = "p_value_adj"
+)  + 
+  theme(
+    axis.text.x.top = element_text(angle = -20, hjust = 1)
+  )
+
+```
+
+
+### *R2.4.1 Co-occurence, top 10 genes
+
+The following plot shows the association between the 10 most commonly altered genes.  Each gene is labelled with [brackets] showing the number of samples which were positive.
+
+The association (color) is determined by pairwise (one gene to one gene) Fisher's exact test over the samples.  Black dots represent significant results after correcting for multiple testing using the Benjamini-Hockberg (false discovery rate) method and significance threshold of 0.05.  The coloring is the same for any P value under an extreme threshold ($10^{-5}$) to avoid swamping the plot with results like TMPRSS2/ERG.
+
+Each cell is labelled by four numbers.  This is the contingency table for the two genes represented in the cell.  For example, the top left number in the top left cell is the number of samples with an alteration in TP53 and APC.  The top right is the number with alteration in APC but not TP53, so and so on.
+
+This methodology is similar to `maftools`.  The major difference here is we are considering alterations of any type (not just mutations), which seems important for this cohort.
+
+```{r, include = T}
+gg_gene_assoc
+```
+
+*Notes:*
+
+- Sanity check:  Some of the significant results here have matches in the literature.  For example:
+  - Negative associations for {SPOP, TMPRSS2} and {ATM, TP53}.
+  - Positive associations for {TMPRSS2, TP53} 
+- I'm would recommend we don't use the common "mutually exclusive" for events that only occur together infrequently.  Common but wrong!
+
+
+
+```{r}
+dft_pathway_bin <- dft_alt %>% 
+  group_by(sample_id, pathway) %>%
+  summarize(exists = n() >= 1, .groups = "drop") %>%
+  pivot_wider(
+    names_from = pathway,
+    values_from = exists
+  ) 
+
+# Add in rows where nothing at all was found:
+dft_pathway_bin <- dft_cpt %>%
+  select(sample_id = cpt_genie_sample_id) %>%
+  left_join(dft_pathway_bin, by = "sample_id")
+  
+dft_pathway_bin %<>%
+  mutate(
+    across(
+      .cols = -sample_id,
+      .fns = (function(x) {
+        x <- as.integer(x)
+        x <- if_else(is.na(x), 0L, x)
+      })
+    )
+  ) %>%
+  # just ordering:
+  select(sample_id, (levels(dft_alt$pathway)))
+
+dft_pathway_assoc <- test_fisher_co_occur(
+  dat = dft_pathway_bin,
+  ignore_cols = c("sample_id", "None"),
+  top = 10, # no limit.
+  alpha = 0.05
 )
 
+dft_pathway_assoc %<>%
+  mutate(
+    cont_table_lab = cont_table_lab_help(
+      ct_11 = ct_11,
+      ct_01 = ct_01,
+      ct_10 = ct_10,
+      ct_00 = ct_00
+    ),
+    p_value_adj = p.adjust(p.value, method = "BH")
+  )
+
+
+
+gg_pathway_assoc <- plot_binary_association(
+  dat = dft_pathway_assoc,
+  x_var = "var1_lab",
+  y_var = "var2_lab",
+  show_p_sig = T,
+  label_var = "cont_table_lab",
+  pval_var = "p_value_adj"
+)  + 
+  theme(
+    axis.text.x.top = element_text(angle = -20, hjust = 1)
+  )
+
+gg_pathway_assoc
+
 ```
 
+### *R2.4.2 Co-occurence, pathway
 
-### *R2.4.2 Co-occurence, top genes
-
-Again, we start with the simple metric for sanity check:
+See previous item for methods description.  This uses the pathways of the Sanchez-Vega (2018) paper.
 
 ```{r, include = T}
-gg_top_gene_mat_pct_agree
+gg_pathway_assoc
 ```
 
-And the unadjusted P value testing mutual exclusivity:
+**Notes:**
 
-```{r, include = T}
-gg_top_gene_mat_mut_excl
-```
+- With one exception the pathways are positively associated, so a sample with an alteration in pathway X is more likely to have an alteration in pathway Y.  
+- This could be related to samples with very high rates of alteration/mutation.
 
 
 
@@ -759,6 +894,14 @@ gg_top_gene_mat_mut_excl
 There is also the question of whether a particular panel covers structural variants - some do and some do not in this dataset.  The vast majority of our samples are tested with panels that can assess structural variants (for example, all the MSK IMPACT and DFCI ONCOPANELs look at SVs).  Some of the smaller panels (UHN_48-V1) do not cover SVs.  
 
 A similar issue is present for CNAs - some panels cover them and some don't.  Additionally, reading the data guide, some only cover gene level CNAs and not intragenic CNAs. 
+
+### *UHN ERG/TMPRSS2 fusions
+
+**Question** In the plot of alteration frequency by institution UHN stands out with zero ERG and TMPRSS2 alterations.  The question is why.
+
+**Answer** The answer is that only one UHN panel in this dataset (UHN-OCA-V3) has the ability to detect fusions.  Furthermore, only 2 samples were tested with this panel.  So we shouldn't be surprised that fusion phenomena don't appear in the data for UHN, and we have a clean explanation for the plot.
+
+In our meeting on October 12 I incorrectly stated that I thought about half the samples were tested using panels that have the ability to detect fusions - hence the need for this claification.
 
 
 

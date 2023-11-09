@@ -13,7 +13,7 @@ library(vctrs)
 library(forcats)
 library(glue)
 
-library(Rediscover)
+# library(Rediscover)
 
 library(ggplot2)
 library(ggrepel)
@@ -24,3 +24,4 @@ library(gt)
 library(gtsummary)
 library(sunburstR)
 library(huxtable)
+library(flextable)
