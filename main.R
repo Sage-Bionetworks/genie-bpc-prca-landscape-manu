@@ -28,13 +28,14 @@ rmarkdown::render(
 # Genomic #
 ###########
 source(here('analysis', 'script', 'input_sanchez.R')) # manual save of pathways.
+source(here('analysis', 'script', 'create_ddr_pathway_mapping.R')) # manual save of pathways.
 # Need to do once:
 source(here('analysis', 'script', 'reshape_cna.R'))
 # # run annotate_oncokb.sh from the command line.  See comments on enviro vars.
 source(here('analysis', 'script', 'save_oncokb_annotated_data.R'))
 # After that the files can be obtained from synid in save_oncokb_annotated_data.R
 
-source(here('analysis', 'script', 'create_gene_panel_dat.R'))
+source(here('analysis', 'script', 'create_gene_panel_dat.R'))i
 source(here('analysis', 'script', 'process_oncokb_output.R'))
 rmarkdown::render(
   input = here('analysis', 'report', 'genie-bpc-prca-genomic.Rmd'),

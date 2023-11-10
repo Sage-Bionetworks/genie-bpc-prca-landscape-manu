@@ -493,6 +493,10 @@ The following figure shows the same data as the previous as raw counts rather th
 gg_onco_impact_pathway_counts 
 ```
 
+### R2.2.2c Onco impact by DDR pathways - counts
+
+DNA damage response genes are outlined in Pearl (2015) and there is an appendix to this document laying out some of the abbreviations.  The goal of looking at this second set of pathways is thinking about mismatch repair (MMR) genes
+
 
 
 
@@ -902,6 +906,43 @@ A similar issue is present for CNAs - some panels cover them and some don't.  Ad
 **Answer** The answer is that only one UHN panel in this dataset (UHN-OCA-V3) has the ability to detect fusions.  Furthermore, only 2 samples were tested with this panel.  So we shouldn't be surprised that fusion phenomena don't appear in the data for UHN, and we have a clean explanation for the plot.
 
 In our meeting on October 12 I incorrectly stated that I thought about half the samples were tested using panels that have the ability to detect fusions - hence the need for this claification.
+
+### *DNA damage repair pathway details
+
+Thanks to Konrad Stopsack for providing the code to generate groups from Pearl (2015).  The following abbreviations are used:
+
+- BER - Base excision repair.
+- Checkpoint - Checkpoint factors/signalling.
+- FA - Fanconi anemia pathway.
+- HR - Homologous recombination.
+- MMR - Mismatch repair, "MMR corrects replication errors that cause the incorporation of the wrong nucleotide (a mismatch) and nucleotide insertions and deletions"
+- NER - Nucleotide excision repair.
+- NHEJ - Non-homologous end joining.
+- Other - Genes associated with DDR which did not fit into another category.
+- Other DSR genes - Other double strand repair genes.
+- Other SSR genes - Other single strand repair genes.
+- Probable - Having a probable role in the DNA damage response process.
+- TLS - Trans lesion synthesis.
+
+For any further detail please ask or consult the paper.
+
+For genes that fit into more than one pathway the following prioritization was used to create mutually exclusive groups:  "MMR" > "HR" > "FA" > "NHEJ" > "BER" > "NER".  That is, if a gene belongs to the MMR, HR and NHEJ pathways, it is coded as part of the MMR pathway for our analysis.
+
+The following table lists the genes involved in these pathways which actually have alterations in our dataset:
+
+```{r, include = T}
+dft_alt %>%
+  filter(!(pathway_ddr %in% "None")) %>%
+  count(pathway_ddr, hugo) %>%
+  mutate(pathway_ddr = as.character(pathway_ddr)) %>%
+  arrange(pathway_ddr, hugo) %>%
+  group_by(pathway_ddr) %>%
+  summarize(
+    genes = paste(hugo, collapse = ", ")
+  ) %>%
+  flextable(.) %>%
+  autofit(.)
+```
 
 
 

@@ -5,6 +5,7 @@ Important:
 - Move R2.1.3 in front of R2.1.2.
 - Read over the material for R2.1.3 and beyond to make sure it still makes sense.
 - Port everything over to the bladder cohort.  Ugh.
+- The /manual folder can't be reproduced from code.  I probably need to find some way to track this.
 
 Not too important:
 - The save_oncokb_annotated_data.R file is not working, something about permissions being denied.  It's easy enough to just drag 3 files in as a workaround, but this would be nice to troubleshoot sometime.
