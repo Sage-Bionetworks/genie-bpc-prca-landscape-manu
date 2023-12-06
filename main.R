@@ -35,8 +35,11 @@ source(here('analysis', 'script', 'reshape_cna.R'))
 source(here('analysis', 'script', 'save_oncokb_annotated_data.R'))
 # After that the files can be obtained from synid in save_oncokb_annotated_data.R
 
-source(here('analysis', 'script', 'create_gene_panel_dat.R'))i
+source(here('analysis', 'script', 'create_gene_panel_dat.R'))
 source(here('analysis', 'script', 'process_oncokb_output.R'))
+source(here('analysis', 'script', 'add_tmb_to_cpt.R'))
+# The above file calls some bioconductor packages that might interfere with 
+#  dplyr calls.  Possibly need to reload R after running it.
 rmarkdown::render(
   input = here('analysis', 'report', 'genie-bpc-prca-genomic.Rmd'),
   output_file = 'genie-bpc-prca-genomic.html',

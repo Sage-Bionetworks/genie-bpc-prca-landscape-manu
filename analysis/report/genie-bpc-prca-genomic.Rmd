@@ -385,7 +385,80 @@ gg_onco_impact <- plot_alt_onco_impact(
 ```
 
 
-### R2.2.1 Oncogenic annotation impact
+
+
+```{r}
+dft_alt %>% 
+  count(sample_id, sort = T) %>% 
+  ggplot(
+    aes(x = n)
+  ) + 
+  geom_histogram() + 
+  theme_bw()
+
+
+```
+
+
+### *R2.2 Alterations per sample
+
+All I want to showcase here is that there are a few samples with dozens of alterations, and most samples have few to none (this plot does not include samples with zero alterations, but those can be added in).  Known but good to remember later.
+
+```{r, include = T, fig.height = 3}
+gg_alt_dist <- dft_alt %>% 
+  count(sample_id, sort = T) %>% 
+  ggplot(
+    aes(x = n, y = 1)
+  ) + 
+  geom_jitter(width = 0, height = 1) + 
+  theme_classic() + 
+  labs(
+    title = "Number of alterations in each sample",
+    subtitle = "One dot is one sample",
+    x = "Number of Alterations"
+  ) +
+  theme(
+    plot.title.position = "plot",
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.y = element_blank()
+  ) + 
+  scale_x_continuous(expand = expansion(mult = 0.01, add = 0))
+
+gg_alt_dist
+
+gg_ngs_pp <- ggplot(
+  data = dft_ngs_pp_long,
+  aes(x = count, fill = category)
+) + 
+  geom_histogram(binwidth = 1, center = 0) +
+  theme_classic() + 
+  labs(x = "Number of tests",
+       y = "Participants") + 
+  scale_y_continuous(expand = expansion(add = 0, mult = c(0,0.05)),
+                     n.breaks= 8) +
+  scale_x_continuous(
+    breaks = 0:10,
+    expand = expansion(
+      add = c(0,0), 
+      mult = c(0,0.01)
+    )
+  ) + 
+  facet_wrap(vars(category)) +
+  theme(
+    strip.text = element_text(hjust = 0),
+    legend.position = "none"
+  ) + 
+  scale_fill_manual(
+    values = pal_pt_hc
+  )
+```
+
+
+
+
+
+### R2.3.1 Oncogenic annotation impact
 
 We discussed annotating and potentially filtering the data using the "oncogenic" feature from oncoKB (https://www.oncokb.org/).  Looking at the alteration level (multiple alterations per sample are possible), the following plot shows the impact this would have on the raw data.
 
@@ -429,7 +502,7 @@ gg_onco_impact_pathway <- dft_alt %>%
 
 
 
-### *R2.2.2a Onco. impact by pathways - proportions
+### R2.3.2a Onco. impact by pathways - proportions
 
 The pathways here are very cursory - just using the gene lists from Sanchez-Vega (2018).  The goal of this analysis is just context for the OncoKB annotations - we would expect well known clinically important pathways like p53 to be more heavily annotated than genes that are not well categorized into a pathway.
 
@@ -485,7 +558,7 @@ gg_onco_impact_pathway_counts <- dft_alt %>%
 ```
 
 
-### R2.2.2b Onco impact by pathways - counts
+### *R2.3.2b Onco impact by pathways - counts
 
 The following figure shows the same data as the previous as raw counts rather than proportions.
 
@@ -493,9 +566,62 @@ The following figure shows the same data as the previous as raw counts rather th
 gg_onco_impact_pathway_counts 
 ```
 
-### R2.2.2c Onco impact by DDR pathways - counts
 
-DNA damage response genes are outlined in Pearl (2015) and there is an appendix to this document laying out some of the abbreviations.  The goal of looking at this second set of pathways is thinking about mismatch repair (MMR) genes
+
+
+
+
+
+```{r}
+# Want to reorder the axis in a sensible way:
+vec_alt_onco_count_fac_lev_ddr <- dft_alt %>%  
+  filter(pathway_ddr != "None") %>%
+  dplyr::count(pathway_ddr, oncogenic) %>%
+  group_by(pathway_ddr) %>%
+  summarize(
+    oncogenic_n = sum(n[oncogenic %in% c("Likely Oncogenic", "Oncogenic")]),
+    total_n = sum(n),
+    new_factor_score = oncogenic_n - (total_n-oncogenic_n)
+  ) %>%
+  arrange(desc(new_factor_score)) %>%
+  pull(pathway_ddr) %>%
+  as.character(.)
+
+gg_onco_impact_pathway_ddr_counts <- dft_alt %>% 
+  filter(pathway_ddr != "None") %>%
+  mutate(
+    pathway_ddr = factor(
+      pathway_ddr, levels = vec_alt_onco_count_fac_lev_ddr
+    )
+  ) %>%
+  dplyr::count(pathway_ddr, oncogenic) %>%
+  mutate(
+    y_dummy = "a"
+  ) %>%
+  ungroup(.) %>%
+  plot_alt_onco_impact(
+    .,
+    x_var = 'n',
+    x_lab = "Alterations (count)",
+    y_var = "pathway_ddr",
+    plot_subtitle = "Pathways: Gene lists from Pearl (2015)"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title.position = "plot"
+  )
+```
+
+
+### *R2.3.2c Onco impact by DDR pathways - counts
+
+DNA damage response genes are outlined in Pearl (2015) and there is an appendix to this document laying out some of the abbreviations and genes involved.  The goal of looking at this second set of pathways is thinking about mismatch repair (MMR) genes.
+
+```{r, include = T}
+gg_onco_impact_pathway_ddr_counts
+```
+
+
 
 
 
@@ -525,7 +651,7 @@ dft_levels_of_evidence <- dft_alt %>%
 ```
 
 
-### *R2.2.3 OncoKB levels of evidence
+### *R2.3.3 OncoKB levels of evidence
 
 OncoKB levels of evidence deal with the strength of evidence that the gene predicts response to a drug.
 - The highest level is 1, which is for "FDA-recognized biomarker predictive of response to an FDA-approved drug in this indication".  Example in prostate:  CDK12.
@@ -540,6 +666,7 @@ dft_levels_of_evidence %>%
   ) %>%
   select(highest_level, n_str) %>%
   flextable::flextable(.) %>%
+  fontsize(size = 8, part = 'all') %>% 
   autofit(.)
 
 ```
@@ -568,7 +695,7 @@ dft_mutation_effect <- dft_alt %>%
 # dft_mutation_effect %>% group_by(hugo) %>% mutate(nrow_gene = n()) %>% ungroup %>% filter(str_detect(mutation_effect, "^Loss|^Gain")) %>% filter(nrow_gene >= 2) %>% arrange(hugo)
 ```
 
-### *R2.2.4 OncoKB gain/loss of function
+### *R2.3.4 OncoKB gain/loss of function
 
 One more piece of information we have access to with oncogenic genes is whether the alteration is predicted to result in a gain or loss of function.  
 
@@ -581,6 +708,7 @@ dft_mutation_effect %>%
   ) %>%
   select(mutation_effect, n_str) %>%
   flextable::flextable(.) %>%
+  fontsize(size = 8, part = "all") %>% 
   flextable::autofit(.)
 ```
 
@@ -672,7 +800,7 @@ gg_inst_alt_onco <- plot_alt_by_inst(
 
 ```
   
-### R2.3.1a Alteration frequency by institution
+### R2.4.1a Alteration frequency by institution
 
 The following plot show the percentage of tested samples with an alteration of any kind.  The black square shows the whole cohort number, and colored dots show the numbers at each institution.  
 
@@ -688,11 +816,9 @@ gg_inst_alt
 - Most of the big outliers are at the small institutions.
 - Even at DFCI and MSK, proportions of altered samples can be quite different depending on the gene.  An example that remains in the next plot is MYC, where DFCI has 2% of tested samples altered and MSK has 9%.
 
-### R2.3.1b Alteration frequency by institution (oncogenic)
+### R2.4.1b Alteration frequency by institution (oncogenic)
 
 Same as the above plot, except we examine include only alterations which were annotated as Likely Oncogenic or Oncogenic by OncoKB.
-
-
 
 ```{r, include = T}
 gg_inst_alt_onco
@@ -751,11 +877,6 @@ dft_gene_assoc %<>%
     )
   )
 
-dft_gene_assoc %<>%
-  mutate(
-    p_value_adj = if_else(p.value < 10^-5, 10^-5, p.value)
-  )
-
 gg_gene_assoc <- plot_binary_association(
   dat = dft_gene_assoc,
   x_var = "var1_lab",
@@ -771,7 +892,7 @@ gg_gene_assoc <- plot_binary_association(
 ```
 
 
-### *R2.4.1 Co-occurence, top 10 genes
+### *R2.5.1 Co-occurence, top 10 genes
 
 The following plot shows the association between the 10 most commonly altered genes.  Each gene is labelled with [brackets] showing the number of samples which were positive.
 
@@ -857,7 +978,7 @@ gg_pathway_assoc
 
 ```
 
-### *R2.4.2 Co-occurence, pathway
+### *R2.5.2 Co-occurence, pathway
 
 See previous item for methods description.  This uses the pathways of the Sanchez-Vega (2018) paper.
 
@@ -875,19 +996,89 @@ gg_pathway_assoc
 
 
 
+
+
+```{r, eval = F}
+# This code chunk works I just think it's pointless.
+dft_pathway_ddr_bin <- dft_alt %>% 
+  group_by(sample_id, pathway_ddr) %>%
+  summarize(exists = n() >= 1, .groups = "drop") %>%
+  pivot_wider(
+    names_from = pathway_ddr,
+    values_from = exists
+  ) 
+
+vec_pathway_ddr_lev <- dft_alt %>%
+  filter(!(pathway_ddr %in% "None")) %>%
+  arrange(pathway_ddr) %>%
+  pull(pathway_ddr) %>% unique %>% as.character
+
+# Add in rows where nothing at all was found:
+dft_pathway_ddr_bin <- dft_cpt %>%
+  select(sample_id = cpt_genie_sample_id) %>%
+  left_join(dft_pathway_ddr_bin, by = "sample_id")
+  
+dft_pathway_ddr_bin %<>%
+  mutate(
+    across(
+      .cols = -sample_id,
+      .fns = (function(x) {
+        x <- as.integer(x)
+        x <- if_else(is.na(x), 0L, x)
+      })
+    )
+  ) %>%
+  # just ordering:
+  select(sample_id, vec_pathway_ddr_lev)
+
+dft_pathway_ddr_assoc <- test_fisher_co_occur(
+  dat = dft_pathway_ddr_bin,
+  ignore_cols = c("sample_id"),
+  top = 10, # no limit.
+  alpha = 0.05
+)
+
+dft_pathway_ddr_assoc %<>%
+  mutate(
+    cont_table_lab = cont_table_lab_help(
+      ct_11 = ct_11,
+      ct_01 = ct_01,
+      ct_10 = ct_10,
+      ct_00 = ct_00
+    ),
+    p_value_adj = p.adjust(p.value, method = "BH")
+  )
+
+
+
+gg_pathway_ddr_assoc <- plot_binary_association(
+  dat = dft_pathway_ddr_assoc,
+  x_var = "var1_lab",
+  y_var = "var2_lab",
+  show_p_sig = T,
+  label_var = "cont_table_lab",
+  pval_var = "p_value_adj"
+)  + 
+  theme(
+    axis.text.x.top = element_text(angle = -20, hjust = 1)
+  )
+
+gg_pathway_ddr_assoc
+```
+
+
+
+
+
+
+
 ## Upcoming
 
-- Further charcterization of alterations after we decide on filtering:
-  - Consequence (missense, frameshift, synonymous, etc).
-  - Level of evidence (for likely oncogenic or oncogenic mutations).
-- Lookup table for genes.
+- Lookup table for alterations.
+- Further requests
 
 
-
-
-
-
-## Problems/Concerns
+## Details/Appendices
 
 ### Structural variants
 
@@ -941,6 +1132,7 @@ dft_alt %>%
     genes = paste(hugo, collapse = ", ")
   ) %>%
   flextable(.) %>%
+  fontsize(size = 8, part = "all") %>% 
   autofit(.)
 ```
 
