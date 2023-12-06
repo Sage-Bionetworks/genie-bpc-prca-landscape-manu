@@ -123,7 +123,7 @@ list_bed_exon <- lapply(
 )
 
 
-dft_cpt_aug <- dft_cpt %>%
+dft_cpt_addon <- dft_cpt %>%
   dplyr::select(
     SAMPLE_ID = cpt_genie_sample_id,
     SEQ_ASSAY_ID = cpt_seq_assay_id,
@@ -163,21 +163,21 @@ tumor_aggr <- dft_maf %>%
   filter(!(Variant_Classification %in% "Silent")) %>%
   dplyr::count(Tumor_Sample_Barcode, name = "numberMutations")
 
-dft_cpt_aug <- left_join(
-    dft_cpt_aug,
+dft_cpt_addon <- left_join(
+    dft_cpt_addon,
     tumor_aggr,
     by = c(SAMPLE_ID = "Tumor_Sample_Barcode")
   ) %>%
   mutate(numberMutations = if_else(is.na(numberMutations), 0, numberMutations)) 
 
-dft_cpt_aug %<>%
+dft_cpt_addon %<>%
   left_join(
     .,
     dplyr::select(as_tibble(dft_panel_stats), SEQ_ASSAY_ID, bps, bpsExon),
     by = 'SEQ_ASSAY_ID'
   )
 
-dft_cpt_aug %<>%
+dft_cpt_addon %<>%
   mutate(tmb_Mb = numberMutations / (bpsExon / 10^6))
 
 # Note:  The code we're adapting used <2 as low, 2-16 as mid and >16 as high.
@@ -186,8 +186,8 @@ dft_cpt_aug %<>%
 
 
 
-# Part 3:  Add these new calculations back into the cpt file:
-dft_cpt_aug %<>%
+# Part 3:  Add these new calculations back into the cpt file.
+dft_cpt_addon %<>%
   dplyr::select(
     cpt_genie_sample_id = SAMPLE_ID,
     n_mut = numberMutations,
@@ -196,16 +196,16 @@ dft_cpt_aug %<>%
     tmb_Mb
   )
   
-dft_cpt <- left_join(
+dft_cpt_aug <- left_join(
     dft_cpt,
-    dft_cpt_aug,
+    dft_cpt_addon,
     by = 'cpt_genie_sample_id',
     relationship = "one-to-one"
   )
 
 readr::write_rds(
-  x = dft_cpt,
-  file = here('data', 'clin', 'dft_cpt.rds')
+  x = dft_cpt_aug,
+  file = here('data', 'clin', 'dft_cpt_aug.rds')
 )
  
 
