@@ -270,50 +270,74 @@ dft_biopsy_t %<>%
 #   aes(x = dx_path_proc_yrs)
 # ) + 
 #   stat_ecdf()
+```
 
+
+```{r}
 eval_event_in_interval <- function(
     dat_block,
     dat_event,
     var_event_t,
     var_block_group = 'md_cast_status_f',
-    tol = 365.25 / 0.5 # half a day in years tolerance
+    tol = 0.5 / 365.25 # half a day in years tolerance
 ) {
   
   dat_rtn <- left_join(
     dat_block,
     select(dat_event, record_id, all_of(var_event_t)),
-    by = c("record_id")
+    by = c("record_id"),
+    # up to two blocks can match infinitely many events per person
+    relationship = "many-to-many"
   )
   
   dat_rtn %<>%
-    group_by('record_id', all_of(var_block_group)) %>%
-    summarize(
-      lt_end = dx_block_end_yrs > .data[[var_event_t]] - tol,
-      gt_start = dx_block_start_yrs < .data[[var_event_t]] + tol,
-      event_in_block = lt_end & gt_start,
-      .groups = 'drop'
+    group_by(record_id, .data[[var_block_group]]) %>%
+    mutate(
+      lt_end = dx_block_end_yrs > (.data[[var_event_t]] - tol),
+      gt_start = dx_block_start_yrs < (.data[[var_event_t]] + tol),
+      event_in_block = lt_end & gt_start
     ) %>%
+    ungroup(.) %>%
     select(-lt_end, -gt_start)
+  
+  
+  dat_rtn %<>%
+    group_by(record_id, .data[[var_block_group]]) %>%
+    summarize(
+      num_events_in_block = sum(event_in_block),
+      any_events_in_block = num_events_in_block >= 1,
+      .groups = 'drop'
+    )
   
   return(dat_rtn)
   
 }
 
-eval_event_in_interval(
+dft_biopsy_in_block <- eval_event_in_interval(
   dat_block = dft_crpc_block_miss_excl,
   dat_event = dft_biopsy_t,
   var_event_t = "dx_path_proc_yrs"
-)
+) 
+```
 
 
-
-
-
-
-
-
-
-
+```{r}
+any_time_overlaps <- function(t_start, t_end, tol = 0.5) {
+  purrr::map_lgl(
+    .x = seq_along(t_start),
+    .f = \(idx) {
+      this_start <- t_start[idx]
+      this_end <- t_end[idx]
+      o_start <- t_start[-idx] # o = other
+      o_end <- t_end[-idx]
+      
+      cond_1 <- (this_end - o_start > tol) & (this_start - o_start < tol)
+      cond_2 <- (this_start - o_end < -tol) & (this_start - o_start > tol)
+      
+      return(any(cond_1 | cond_2, na.rm = T))
+    }
+  )
+}
 
 
 eval_drug_in_interval <- function(
@@ -339,8 +363,24 @@ eval_drug_in_interval <- function(
     by = c("record_id", "ca_seq")
   )
   
-  # Use logic from drug cohort.
+  
+  
+  any_time_overlaps <- function(t_start, t_end, tol = 0.5) {
+  purrr::map_lgl(
+    .x = seq_along(t_start),
+    .f = \(idx) {
+      this_start <- t_start[idx]
+      this_end <- t_end[idx]
+      o_start <- t_start[-idx] # o = other
+      o_end <- t_end[-idx]
       
+      cond_1 <- (this_end - o_start > tol) & (this_start - o_start < tol)
+      cond_2 <- (this_start - o_end < -tol) & (this_start - o_start > tol)
+      
+      return(any(cond_1 | cond_2, na.rm = T))
+    }
+  )
+}    
 }
 
 ```
