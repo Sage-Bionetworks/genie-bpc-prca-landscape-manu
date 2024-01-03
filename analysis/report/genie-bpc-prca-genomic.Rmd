@@ -442,11 +442,12 @@ gg_tmb_dist <- ggplot(
   data = dft_cpt,
   aes(x = tmb_Mb + 0.1, y = 1)
 ) + 
-  geom_jitter(width = 0, height = 1) + 
+  stat_boxplot(outlier.shape = NA, coef = Inf) + 
+  geom_jitter(width = 0, height = 0.3, alpha = 0.3) + 
   theme_classic() + 
   labs(
-    title = "Tumor mutation burden by sample",
-    subtitle = "One dot = one sample.  +0.1 added to all to include 0 TMB samples.",
+    title = "Tumor mutation burden sample distribution",
+    subtitle = "0.1 added to all, whiskers go to max/min",
     x = "TMB (mutations per megabase)"
   ) +
   theme(
@@ -467,7 +468,7 @@ prop_over_tmb_10 <- dft_cpt %>%
 
 ```
 
-### *R2.2.2 TMB by sample
+### R2.2.2a TMB distribution
 
 A plot showing the tumor mutation burden for each sample in mutations per megabase.  Notes:
 
@@ -482,6 +483,104 @@ gg_tmb_dist
 Notes:
 
 - `r round(prop_over_tmb_10*100,1)`% of the samples in this dataset have a TMB greater than 10 mut/Mb.  This is the pre-specified threshold we hoped to use for hypermutated samples in later analyses.
+
+
+
+
+
+
+
+
+
+
+```{r}
+dft_tmb <- dft_cpt |>
+  group_by(cpt_seq_assay_id) |> 
+  mutate(n_this_panel = n()) |>
+  ungroup() |>
+  mutate(panel_lab = factor(
+    paste0(cpt_seq_assay_id, " (n=", n_this_panel, ")")
+  ))
+
+gg_tmb_dist_panel <- ggplot(
+  data = dft_tmb,
+  aes(
+    x = tmb_Mb + 0.1, 
+    y = panel_lab,
+    fill = institution
+  )
+) + 
+  stat_boxplot(outlier.shape = NA, coef = 100) + 
+  # geom_jitter(width = 0, height = 1) + 
+  theme_classic() + 
+  labs(
+    title = "Tumor mutation burden by sample",
+    subtitle = "0.1 added to all, whiskers go to max/min",
+    x = "TMB (mutations per megabase)"
+  ) +
+  theme(
+    plot.title.position = "plot"
+  ) + 
+  scale_x_continuous(
+    expand = expansion(mult = 0.01, add = 0),
+    trans = 'log10'
+  )
+```
+
+### R2.2.2b TMB by panel
+
+In our Dec 2023 meeting there was consensus that the TMB distribution above seemed to have an excess number of individuals with high TMB.  One reason for this may be that most GENIE sites have tumor only sequencing.  Even with the efforts to remove germline mutations, some could slip through, artificially inflating the TMB of those samples.
+
+Fortunately we have one large site which uses tumor-normal sequencing (MSK).  If the germline mutations are indeed the cause of the high TMB in our group, we would expect the MSK panels to have a more typical TMB distribution and the others to be relatively high.  This motivates the next plot, where we show TMB distributions by panel:
+
+
+```{r, include = T}
+gg_tmb_dist_panel
+```
+
+### R2.2.2c TMB eCDF by site
+
+Another way we can view this is showing the cumulative distribution function for each site.  All MSK panels are tumor-normal and all others are tumor-only.  The black line is at TMB = 10.
+
+```{r}
+gg_tmb_ecdf_panel <- ggplot(
+  data = dft_tmb,
+  aes(
+    x = tmb_Mb + 0.1, 
+    color = institution
+  )
+) + 
+  stat_ecdf() + 
+  geom_vline(xintercept = 10.1) + 
+  theme_classic() + 
+  labs(
+    title = "Tumor mutation burden by sample",
+    x = "TMB (mutations per megabase)"
+  ) +
+  theme(
+    plot.title.position = "plot"
+  ) + 
+  scale_x_continuous(
+    expand = expansion(mult = 0.01, add = 0),
+    trans = 'log10'
+  )
+
+gg_tmb_ecdf_panel
+```
+
+It may also be helpful heuristically to state the proportion of samples over 10 mut/Mb by site:
+
+```{r}
+dft_tmb %>% 
+  group_by(institution) %>%
+  summarize(
+    num_tmb_gte_10 = sum(tmb_Mb > 10, na.rm = T),
+    pct_tmb_gte_10 = round(num_tmb_gte_10/n()*100, 1),
+    .groups = 'drop'
+  ) %>%
+  flextable %>%
+  autofit
+```
 
 
 ### R2.3.1 Oncogenic annotation impact
@@ -1034,7 +1133,7 @@ gg_gene_assoc_sens <- plot_binary_association(
 ```
 
 
-### *R2.5.1b Co-occurence, top 10 genes, sensitivity
+### R2.5.1b Co-occurence, top 10 genes, sensitivity
 
 As a sensitivity analysis, we discussed repeating the previous plot on only subjects who had panels where those top 10 genes were tested.  The following plot shows this:
 
@@ -1093,7 +1192,7 @@ gg_pathway_assoc
 
 ```
 
-### *R2.5.2a Co-occurence, pathway
+### R2.5.2a Co-occurence, pathway
 
 See previous item for methods description.  This uses the pathways of the Sanchez-Vega (2018) paper.
 
@@ -1154,7 +1253,7 @@ gg_pathway_assoc_no_hyper_mut
 
 
 
-### *R2.5.2b Co-occurence, pathway
+### R2.5.2b Co-occurence, pathway
 
 A variant of the previous plot with hypermutated samples removed.  Hypermutated is defined as a TMB of greater than 10 mutations per megabase.
 
@@ -1263,7 +1362,7 @@ There is also the question of whether a particular panel covers structural varia
 
 A similar issue is present for CNAs - some panels cover them and some don't.  Additionally, reading the data guide, some only cover gene level CNAs and not intragenic CNAs. 
 
-### *UHN ERG/TMPRSS2 fusions
+### UHN ERG/TMPRSS2 fusions
 
 **Question** In the plot of alteration frequency by institution UHN stands out with zero ERG and TMPRSS2 alterations.  The question is why.
 
@@ -1271,7 +1370,7 @@ A similar issue is present for CNAs - some panels cover them and some don't.  Ad
 
 In our meeting on October 12 I incorrectly stated that I thought about half the samples were tested using panels that have the ability to detect fusions - hence the need for this claification.
 
-### *DNA damage repair pathway details
+### DNA damage repair pathway details
 
 Thanks to Konrad Stopsack for providing the code to generate groups from Pearl (2015).  The following abbreviations are used:
 
