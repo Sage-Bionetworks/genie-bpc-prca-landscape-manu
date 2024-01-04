@@ -397,7 +397,6 @@ dft_alt %>%
   geom_histogram() + 
   theme_bw()
 
-
 ```
 
 
@@ -463,7 +462,7 @@ gg_tmb_dist <- ggplot(
     expand = expansion(mult = 0.01, add = 0),
     trans = 'log10'
   ) +
-  facet_wrap(vars(sample_type_simple_f), ncol = 1)
+  facet_wrap(vars(sample_type_simple_f), ncol = 1) 
 
 prop_over_tmb_10 <- dft_cpt %>%
   filter(tmb_Mb >= 10) %>%
@@ -503,9 +502,14 @@ dft_tmb <- dft_cpt_known_type |>
   mutate(n_this_panel = n()) |>
   ungroup() |>
   filter(n_this_panel >= 5) |>
-  mutate(panel_lab = factor(
-    paste0(cpt_seq_assay_id, " (n=", n_this_panel, ")")
-  ))
+  group_by(cpt_seq_assay_id, sample_type_simple_f) |>
+  mutate(n_this_panel_type = n()) |>
+  ungroup() |>
+  mutate(
+    panel_lab = factor(
+      paste0(cpt_seq_assay_id, " (n=", n_this_panel_type, ")")
+    )
+  )
 
 gg_tmb_dist_panel <- ggplot(
   data = dft_tmb,
@@ -519,18 +523,32 @@ gg_tmb_dist_panel <- ggplot(
   # geom_jitter(width = 0, height = 1) + 
   theme_classic() + 
   labs(
-    title = "Tumor mutation burden by sample",
-    subtitle = "0.1 added to all, whiskers go to max/min",
+    title = "Tumor mutation burden sample distribution",
+    subtitle = "+0.1 added to all, boxplot whiskers go to max/min",
     x = "TMB (mutations per megabase)"
   ) +
   theme(
-    plot.title.position = "plot"
+    plot.title.position = "plot",
+    axis.title.y = element_blank(),
+    axis.text.y = element_text(hjust = 0),
+    strip.text = element_text(hjust = 0)
   ) + 
   scale_x_continuous(
     expand = expansion(mult = 0.01, add = 0),
     trans = 'log10'
   ) +
-  facet_wrap(vars(sample_type_simple_f), ncol = 1)
+  scale_y_discrete(limits=rev) + 
+  guides(fill = "none") + 
+  facet_wrap(
+    vars(sample_type_simple_f), 
+    ncol = 1,
+    scales = "free"
+  ) + 
+  coord_cartesian(
+    xlim = c(NA, max(dft_tmb$tmb_Mb + 0.2))
+  ) + 
+  scale_fill_vibrant()
+
 ```
 
 ### R2.3.2 TMB by panel
@@ -544,9 +562,10 @@ Fortunately we have one large site which uses tumor-normal sequencing (MSK).  If
 gg_tmb_dist_panel
 ```
 
-### R2.3.3 TMB eCDF by site
 
-Another way we can view this is showing the cumulative distribution function for each site.  All MSK panels are tumor-normal and all others are tumor-only.  The black line is at TMB = 10.
+
+
+
 
 ```{r}
 gg_tmb_ecdf_panel <- ggplot(
@@ -558,26 +577,51 @@ gg_tmb_ecdf_panel <- ggplot(
 ) + 
   stat_ecdf() + 
   geom_vline(xintercept = 10.1) + 
-  theme_classic() + 
+  theme_bw() + 
   labs(
-    title = "Tumor mutation burden by sample",
+    title = "Tumor mutation burden sample_distribution",
     x = "TMB (mutations per megabase)"
   ) +
   theme(
-    plot.title.position = "plot"
+    plot.title.position = "plot",
+    axis.title.y = element_blank(),
+    axis.text.y = element_text(hjust = 0),
+    strip.text = element_text(hjust = 0)
   ) + 
   scale_x_continuous(
     expand = expansion(mult = 0.01, add = 0),
     trans = 'log10'
   ) +
-  facet_wrap(vars(sample_type_simple_f), ncol = 1)
+  scale_y_continuous(
+    breaks = seq(0,1, by = 0.5),
+    labels = paste0(seq(0,1, by = 0.5)*100, "%"),
+    minor_breaks = seq(0,1, by = 0.25)
+  ) + 
+  guides(fill = "none") + 
+  facet_wrap(
+    vars(sample_type_simple_f), 
+    ncol = 1,
+    scales = "free" # free_x is the easiest way to get axes.
+  ) +
+  coord_cartesian(
+    xlim = c(NA, max(dft_tmb$tmb_Mb + 0.2))
+  ) + 
+  scale_color_vibrant()
+```
 
+### R2.3.3 TMB eCDF by site
+
+Another way we can view this is showing the cumulative distribution function for each site.  All MSK panels are tumor-normal and all others are tumor-only.  The black line is at TMB = 10.
+
+
+
+```{r, include = T}
 gg_tmb_ecdf_panel
 ```
 
 It may also be helpful heuristically to state the proportion of samples over 10 mut/Mb by site:
 
-```{r}
+```{r, include = T}
 dft_tmb %>% 
   group_by(institution) %>%
   summarize(
@@ -693,7 +737,7 @@ Above we see some evidence that MSK has a lower TMB on average than the other in
 
 A number of clinical characteristics were shown to differ by site:  for example, compared with MSK, DFCI had more white participants, more early stage patients (who would yeild fewer metatstatic samples).  Below is the fit of a linear model for log10(TMB), using patient age, panel size (log10 of the combined exon size in the panel), indicators for race, indicators for sample type, indicators for institution.
 
-```{r}
+```{r, include = T}
 ft_lm_tmb
 ```
 
