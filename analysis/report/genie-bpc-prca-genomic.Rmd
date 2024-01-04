@@ -437,9 +437,12 @@ gg_alt_dist
 
 
 ```{r}
+
+dft_cpt_known_type <- dft_cpt %>%
+  filter(sample_type_simple_f %in% c("Primary tumor", "Metastatic"))
 # This is added to the version of the CPT data we loaded, so we don't need to do any calculations.
 gg_tmb_dist <- ggplot(
-  data = dft_cpt,
+  data = dft_cpt_known_type,
   aes(x = tmb_Mb + 0.1, y = 1)
 ) + 
   stat_boxplot(outlier.shape = NA, coef = Inf) + 
@@ -459,7 +462,8 @@ gg_tmb_dist <- ggplot(
   scale_x_continuous(
     expand = expansion(mult = 0.01, add = 0),
     trans = 'log10'
-  )
+  ) +
+  facet_wrap(vars(sample_type_simple_f), ncol = 1)
 
 prop_over_tmb_10 <- dft_cpt %>%
   filter(tmb_Mb >= 10) %>%
@@ -494,10 +498,11 @@ Notes:
 
 
 ```{r}
-dft_tmb <- dft_cpt |>
+dft_tmb <- dft_cpt_known_type |>
   group_by(cpt_seq_assay_id) |> 
   mutate(n_this_panel = n()) |>
   ungroup() |>
+  filter(n_this_panel >= 5) |>
   mutate(panel_lab = factor(
     paste0(cpt_seq_assay_id, " (n=", n_this_panel, ")")
   ))
@@ -524,14 +529,15 @@ gg_tmb_dist_panel <- ggplot(
   scale_x_continuous(
     expand = expansion(mult = 0.01, add = 0),
     trans = 'log10'
-  )
+  ) +
+  facet_wrap(vars(sample_type_simple_f), ncol = 1)
 ```
 
 ### R2.3.2 TMB by panel
 
 In our Dec 2023 meeting there was consensus that the TMB distribution above seemed to have an excess number of individuals with high TMB.  One reason for this may be that most GENIE sites have tumor only sequencing.  Even with the efforts to remove germline mutations, some could slip through, artificially inflating the TMB of those samples.
 
-Fortunately we have one large site which uses tumor-normal sequencing (MSK).  If the germline mutations are indeed the cause of the high TMB in our group, we would expect the MSK panels to have a more typical TMB distribution and the others to be relatively high.  This motivates the next plot, where we show TMB distributions by panel:
+Fortunately we have one large site which uses tumor-normal sequencing (MSK).  If the germline mutations are indeed the cause of the high TMB in our group, we would expect the MSK panels to have a more typical TMB distribution and the others to be relatively high.  This motivates the next plot, where we show TMB distributions by panel (panels with less than 5 samples were removed):
 
 
 ```{r, include = T}
@@ -563,7 +569,8 @@ gg_tmb_ecdf_panel <- ggplot(
   scale_x_continuous(
     expand = expansion(mult = 0.01, add = 0),
     trans = 'log10'
-  )
+  ) +
+  facet_wrap(vars(sample_type_simple_f), ncol = 1)
 
 gg_tmb_ecdf_panel
 ```
