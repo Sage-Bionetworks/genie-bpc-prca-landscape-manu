@@ -468,7 +468,7 @@ prop_over_tmb_10 <- dft_cpt %>%
 
 ```
 
-### R2.2.2a TMB distribution
+### R2.3.1 TMB distribution
 
 A plot showing the tumor mutation burden for each sample in mutations per megabase.  Notes:
 
@@ -527,7 +527,7 @@ gg_tmb_dist_panel <- ggplot(
   )
 ```
 
-### R2.2.2b TMB by panel
+### R2.3.2 TMB by panel
 
 In our Dec 2023 meeting there was consensus that the TMB distribution above seemed to have an excess number of individuals with high TMB.  One reason for this may be that most GENIE sites have tumor only sequencing.  Even with the efforts to remove germline mutations, some could slip through, artificially inflating the TMB of those samples.
 
@@ -538,7 +538,7 @@ Fortunately we have one large site which uses tumor-normal sequencing (MSK).  If
 gg_tmb_dist_panel
 ```
 
-### R2.2.2c TMB eCDF by site
+### R2.3.3 TMB eCDF by site
 
 Another way we can view this is showing the cumulative distribution function for each site.  All MSK panels are tumor-normal and all others are tumor-only.  The black line is at TMB = 10.
 
@@ -583,7 +583,122 @@ dft_tmb %>%
 ```
 
 
-### R2.3.1 Oncogenic annotation impact
+
+
+
+
+
+
+```{r}
+dft_tmb_lm <- dft_pt %>% 
+  mutate(
+    race_simple_f = case_when(
+      naaccr_race_code_primary %in% "White" ~ "white",
+      naaccr_race_code_primary %in% "Black" ~ "black",
+      naaccr_race_code_primary %in% c("Chinese", "Other Asian") ~ "asian",
+      T ~ "race_other_unk"
+    )
+  ) %>%
+  select(
+    record_id, race_simple_f
+  ) 
+
+dft_tmb_lm <- dft_tmb %>% 
+  select(
+    record_id,
+    ca_seq,
+    sample_type_simple_f,
+    institution,
+    panel_bp_exon,
+    tmb_Mb,
+    dob_cpt_report_yrs
+  ) %>%
+  left_join(
+    dft_tmb_lm,
+    .,
+    by = c('record_id')
+  )
+
+dft_tmb_lm %<>%
+  rename(
+    pt_age_at_sample = dob_cpt_report_yrs
+  ) %>%
+  mutate(
+    log10_panel_Mb_exon = log10(panel_bp_exon / 10^6),
+    log10_tmb_Mb = log10(tmb_Mb + 0.1)
+  ) %>%
+  select(-panel_bp_exon, -tmb_Mb)
+
+lm_tmb <- dft_tmb_lm %>%
+  select(-record_id, -ca_seq) %>%
+  fastDummies::dummy_cols(
+    .data = .,
+    remove_most_frequent_dummy = T,
+    remove_selected_columns = T
+  ) %>%
+  glm(
+    data = .,
+    formula = log10_tmb_Mb ~ .,
+    family = gaussian("identity")
+  )
+
+ft_lm_tmb <- lm_tmb %>%
+  broom::tidy(.) %>%
+  select(
+    term, estimate, p.value
+  ) %>%
+  mutate(estimate = round(estimate, 4)) %>%
+  filter(!(term %in% "(Intercept)")) %>%
+  mutate(
+    p.value = cfmisc::pval_nejm(p.value)
+  )
+
+ft_lm_tmb %<>%
+  flextable(.) %>%
+  autofit(.) %>%
+  align(j = "p.value", align = "right")
+
+# Lasso fit: not reported, just described.
+
+# dft_tmb_lm_processed <- dft_tmb_lm %>%
+#   select(-record_id, -ca_seq) %>%
+#   fastDummies::dummy_cols(
+#     .data = .,
+#     remove_most_frequent_dummy = T,
+#     remove_selected_columns = T
+#   )
+
+# glmnet::cv.glmnet(
+#   x = (select(dft_tmb_lm_processed, -log10_tmb_Mb) %>%
+#          as.matrix),
+#   y = (select(dft_tmb_lm_processed, log10_tmb_Mb) %>%
+#          as.matrix),
+#   nfolds = 10,
+#   family = gaussian('identity')
+# ) %>%
+#   coef.glmnet(., s = 'lambda.1se')
+
+```
+
+### R2.3.4 TMB associations
+
+Above we see some evidence that MSK has a lower TMB on average than the other institutions, and tumor-normal sequencing is our hypothesized explanation.  Another possibility is confounding, which we consider briefly here by fitting a few models.
+
+A number of clinical characteristics were shown to differ by site:  for example, compared with MSK, DFCI had more white participants, more early stage patients (who would yeild fewer metatstatic samples).  Below is the fit of a linear model for log10(TMB), using patient age, panel size (log10 of the combined exon size in the panel), indicators for race, indicators for sample type, indicators for institution.
+
+```{r}
+ft_lm_tmb
+```
+
+**Notes:**
+
+- Even when adjusting for a handful of obvious potential confounders, MSK has a lower TMB than other sites (MSK is the reference).  This provides some indirect evidence that tumor-normal vs tumor-only sequencing is affecting TMB even after attempts to remove germline variants.
+- A heavily penalized LASSO model gave qualitatively similar results:  the terms for institution, patient age at sample, and metastatic (relative to primary) were selected.
+- This model is a pretty imperfect fit.  TMB is zero inflated and if we wanted to push this further or publish it we should think more about our model.
+
+
+
+### R2.4.1 Oncogenic annotation impact
 
 We discussed annotating and potentially filtering the data using the "oncogenic" feature from oncoKB (https://www.oncokb.org/).  Looking at the alteration level (multiple alterations per sample are possible), the following plot shows the impact this would have on the raw data.
 
@@ -627,7 +742,7 @@ gg_onco_impact_pathway <- dft_alt %>%
 
 
 
-### R2.3.2a Onco. impact by pathways - proportions
+### R2.4.2a Onco. impact by pathways - proportions
 
 The pathways here are very cursory - just using the gene lists from Sanchez-Vega (2018).  The goal of this analysis is just context for the OncoKB annotations - we would expect well known clinically important pathways like p53 to be more heavily annotated than genes that are not well categorized into a pathway.
 
@@ -683,7 +798,7 @@ gg_onco_impact_pathway_counts <- dft_alt %>%
 ```
 
 
-### R2.3.2b Onco impact by pathways - counts
+### R2.4.2b Onco impact by pathways - counts
 
 The following figure shows the same data as the previous as raw counts rather than proportions.
 
@@ -738,15 +853,13 @@ gg_onco_impact_pathway_ddr_counts <- dft_alt %>%
 ```
 
 
-### R2.3.2c Onco impact by DDR pathways - counts
+### R2.4.2c Onco impact by DDR pathways - counts
 
 DNA damage response genes are outlined in Pearl (2015) and there is an appendix to this document laying out some of the abbreviations and genes involved.  The goal of looking at this second set of pathways is thinking about mismatch repair (MMR) genes.
 
 ```{r, include = T}
 gg_onco_impact_pathway_ddr_counts
 ```
-
-
 
 
 
@@ -776,7 +889,7 @@ dft_levels_of_evidence <- dft_alt %>%
 ```
 
 
-### R2.3.3 OncoKB levels of evidence
+### R2.4.3 OncoKB levels of evidence
 
 OncoKB levels of evidence deal with the strength of evidence that the gene predicts response to a drug.
 - The highest level is 1, which is for "FDA-recognized biomarker predictive of response to an FDA-approved drug in this indication".  Example in prostate:  CDK12.
@@ -820,7 +933,7 @@ dft_mutation_effect <- dft_alt %>%
 # dft_mutation_effect %>% group_by(hugo) %>% mutate(nrow_gene = n()) %>% ungroup %>% filter(str_detect(mutation_effect, "^Loss|^Gain")) %>% filter(nrow_gene >= 2) %>% arrange(hugo)
 ```
 
-### R2.3.4 OncoKB gain/loss of function
+### R2.4.4 OncoKB gain/loss of function
 
 One more piece of information we have access to with oncogenic genes is whether the alteration is predicted to result in a gain or loss of function.  
 
@@ -925,7 +1038,7 @@ gg_inst_alt_onco <- plot_alt_by_inst(
 
 ```
   
-### R2.4.1a Alteration frequency by institution
+### R2.5.1a Alteration frequency by institution
 
 The following plot show the percentage of tested samples with an alteration of any kind.  The black square shows the whole cohort number, and colored dots show the numbers at each institution.  
 
@@ -941,7 +1054,7 @@ gg_inst_alt
 - Most of the big outliers are at the small institutions.
 - Even at DFCI and MSK, proportions of altered samples can be quite different depending on the gene.  An example that remains in the next plot is MYC, where DFCI has 2% of tested samples altered and MSK has 9%.
 
-### R2.4.1b Alteration frequency by institution (oncogenic)
+### R2.5.1b Alteration frequency by institution (oncogenic)
 
 Same as the above plot, except we examine include only alterations which were annotated as Likely Oncogenic or Oncogenic by OncoKB.
 
@@ -1017,7 +1130,7 @@ gg_gene_assoc <- plot_binary_association(
 ```
 
 
-### R2.5.1a Co-occurence, top 10 genes
+### R2.6.1a Co-occurence, top 10 genes
 
 The following plot shows the association between the 10 genes with the highest number of alterations.  Each gene is labelled with [brackets] showing the number of samples which were positive in the cohort.
 
@@ -1133,7 +1246,7 @@ gg_gene_assoc_sens <- plot_binary_association(
 ```
 
 
-### R2.5.1b Co-occurence, top 10 genes, sensitivity
+### R2.6.1b Co-occurence, top 10 genes, sensitivity
 
 As a sensitivity analysis, we discussed repeating the previous plot on only subjects who had panels where those top 10 genes were tested.  The following plot shows this:
 
@@ -1192,7 +1305,7 @@ gg_pathway_assoc
 
 ```
 
-### R2.5.2a Co-occurence, pathway
+### R2.6.2a Co-occurence, pathway
 
 See previous item for methods description.  This uses the pathways of the Sanchez-Vega (2018) paper.
 
@@ -1253,7 +1366,7 @@ gg_pathway_assoc_no_hyper_mut
 
 
 
-### R2.5.2b Co-occurence, pathway
+### R2.6.2b Co-occurence, pathway, hypermutated removed
 
 A variant of the previous plot with hypermutated samples removed.  Hypermutated is defined as a TMB of greater than 10 mutations per megabase.
 

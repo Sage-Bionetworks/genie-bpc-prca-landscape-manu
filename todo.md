@@ -1,3 +1,5 @@
+- Look into tmb by primary/met.  Could explain some of the difference.
+
 Important:
 - The data should be loaded from cleaned up copies in data rather than data-raw.  This would allow some of the processing like grabbing only drugs associated with cancer regimens to be propaged more cleanly.
 - The sunburst code seems to still use the data lists - not great.
