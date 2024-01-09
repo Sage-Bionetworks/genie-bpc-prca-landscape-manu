@@ -449,7 +449,7 @@ gg_tmb_dist <- ggplot(
   theme_classic() + 
   labs(
     title = "Tumor mutation burden sample distribution",
-    subtitle = "0.1 added to all, whiskers go to max/min",
+    subtitle = "+0.1 added to all, boxplot whiskers go to max/min",
     x = "TMB (mutations per megabase)"
   ) +
   theme(
@@ -471,7 +471,7 @@ prop_over_tmb_10 <- dft_cpt %>%
 
 ```
 
-### R2.3.1 TMB distribution
+### *R2.3.1 TMB distribution
 
 A plot showing the tumor mutation burden for each sample in mutations per megabase.  Notes:
 
@@ -511,47 +511,17 @@ dft_tmb <- dft_cpt_known_type |>
     )
   )
 
-gg_tmb_dist_panel <- ggplot(
-  data = dft_tmb,
-  aes(
-    x = tmb_Mb + 0.1, 
-    y = panel_lab,
-    fill = institution
-  )
-) + 
-  stat_boxplot(outlier.shape = NA, coef = 100) + 
-  # geom_jitter(width = 0, height = 1) + 
-  theme_classic() + 
-  labs(
-    title = "Tumor mutation burden sample distribution",
-    subtitle = "+0.1 added to all, boxplot whiskers go to max/min",
-    x = "TMB (mutations per megabase)"
-  ) +
-  theme(
-    plot.title.position = "plot",
-    axis.title.y = element_blank(),
-    axis.text.y = element_text(hjust = 0),
-    strip.text = element_text(hjust = 0)
-  ) + 
-  scale_x_continuous(
-    expand = expansion(mult = 0.01, add = 0),
-    trans = 'log10'
-  ) +
-  scale_y_discrete(limits=rev) + 
-  guides(fill = "none") + 
-  facet_wrap(
-    vars(sample_type_simple_f), 
-    ncol = 1,
-    scales = "free"
-  ) + 
-  coord_cartesian(
-    xlim = c(NA, max(dft_tmb$tmb_Mb + 0.2))
-  ) + 
-  scale_fill_vibrant()
+gg_tmb_dist_panel <- plot_boxplot_by_panel(
+  dat = dft_tmb,
+  x_var = 'tmb_Mb',
+  plot_title = "Tumor mutation burden sample distribution",
+  plot_subtitle = "+0.1 added to all, boxplot whiskers go to max/min",
+  x_lab = "TMB (mutations per megabase)"
+)
 
 ```
 
-### R2.3.2 TMB by panel
+### *R2.3.2 TMB by panel
 
 In our Dec 2023 meeting there was consensus that the TMB distribution above seemed to have an excess number of individuals with high TMB.  One reason for this may be that most GENIE sites have tumor only sequencing.  Even with the efforts to remove germline mutations, some could slip through, artificially inflating the TMB of those samples.
 
@@ -568,61 +538,24 @@ gg_tmb_dist_panel
 
 
 ```{r}
-gg_tmb_ecdf_panel <- ggplot(
-  data = dft_tmb,
-  aes(
-    x = tmb_Mb + 0.1, 
-    color = institution
-  )
-) + 
-  stat_ecdf() + 
-  geom_vline(xintercept = 10.1) + 
-  theme_bw() + 
-  labs(
-    title = "Tumor mutation burden sample_distribution",
-    x = "TMB (mutations per megabase)"
-  ) +
-  theme(
-    plot.title.position = "plot",
-    axis.title.y = element_blank(),
-    axis.text.y = element_text(hjust = 0),
-    strip.text = element_text(hjust = 0)
-  ) + 
-  scale_x_continuous(
-    expand = expansion(mult = 0.01, add = 0),
-    trans = 'log10'
-  ) +
-  scale_y_continuous(
-    breaks = seq(0,1, by = 0.5),
-    labels = paste0(seq(0,1, by = 0.5)*100, "%"),
-    minor_breaks = seq(0,1, by = 0.25)
-  ) + 
-  guides(fill = "none") + 
-  facet_wrap(
-    vars(sample_type_simple_f), 
-    ncol = 1,
-    scales = "free" # free_x is the easiest way to get axes.
-  ) +
-  coord_cartesian(
-    xlim = c(NA, max(dft_tmb$tmb_Mb + 0.2))
-  ) + 
-  scale_color_vibrant()
-```
-
-### R2.3.3 TMB eCDF by site
-
-Another way we can view this is showing the cumulative distribution function for each site.  All MSK panels are tumor-normal and all others are tumor-only.  The black line is at TMB = 10.
+gg_tmb_ecdf_panel <- plot_ecdf_by_panel(
+  dat = dft_tmb,
+  x_var = 'tmb_Mb',
+  plot_title = "Tumor mutation burden sample distribution",
+  x_lab = "TMB (mutations per megabase)"
+)
 
 
+ft_median_tmb <- dft_tmb %>%
+  group_by(institution, sample_type_simple_f) %>%
+  summarize(
+    median_tmb = round(median(tmb_Mb), 2),
+    .groups = 'drop'
+  ) %>%
+  flextable() %>%
+  autofit()
 
-```{r, include = T}
-gg_tmb_ecdf_panel
-```
-
-It may also be helpful heuristically to state the proportion of samples over 10 mut/Mb by site:
-
-```{r, include = T}
-dft_tmb %>% 
+ft_tmb_over_10 <- dft_tmb %>% 
   group_by(institution) %>%
   summarize(
     num_tmb_gte_10 = sum(tmb_Mb > 10, na.rm = T),
@@ -631,6 +564,27 @@ dft_tmb %>%
   ) %>%
   flextable %>%
   autofit
+
+```
+
+### *R2.3.3 TMB eCDF by site
+
+Another way we can view this is showing the cumulative distribution function for each site.  All MSK panels are tumor-normal and all others are tumor-only.  The black line is at TMB = 10.
+
+```{r, include = T}
+gg_tmb_ecdf_panel
+```
+
+The following table states the median TMB by institution/sample_type (visible in chart):
+
+```{r, include = T}
+ft_median_tmb
+```
+
+And the following table states the proportion of samples over 10 mut/Mb by site:
+
+```{r, include = T}
+ft_tmb_over_10
 ```
 
 
@@ -731,7 +685,7 @@ ft_lm_tmb %<>%
 
 ```
 
-### R2.3.4 TMB associations
+### *R2.3.4 TMB associations
 
 Above we see some evidence that MSK has a lower TMB on average than the other institutions, and tumor-normal sequencing is our hypothesized explanation.  Another possibility is confounding, which we consider briefly here by fitting a few models.
 
@@ -746,6 +700,57 @@ ft_lm_tmb
 - Even when adjusting for a handful of obvious potential confounders, MSK has a lower TMB than other sites (MSK is the reference).  This provides some indirect evidence that tumor-normal vs tumor-only sequencing is affecting TMB even after attempts to remove germline variants.
 - A heavily penalized LASSO model gave qualitatively similar results:  the terms for institution, patient age at sample, and metastatic (relative to primary) were selected.
 - This model is a pretty imperfect fit.  TMB is zero inflated and if we wanted to push this further or publish it we should think more about our model.
+
+
+
+
+
+```{r}
+gg_tmb_dist_panel_onco <- plot_boxplot_by_panel(
+  dat = dft_tmb,
+  x_var = 'tmb_Mb_onco',
+  plot_title = "Tumor mutation burden sample distribution",
+  plot_subtitle = "only including oncogenic mutations",
+  x_lab = "TMB (oncogenic mutations per megabase)"
+)
+
+gg_tmb_ecdf_panel_onco <- plot_ecdf_by_panel(
+  dat = dft_tmb,
+  x_var = 'tmb_Mb_onco',
+  plot_title = "Tumor mutation burden sample distribution",
+  plot_subtitle = "only including oncogenic mutations",
+  x_lab = "TMB (oncogenic mutations per megabase)"
+)
+```
+
+
+
+
+
+### *R2.3.5 TMB by panel (oncogenic only)
+
+We've identified a potential problem with TMB: tumor-normal samples may have a systematically lower TMB than tumor-only samples.  However, some of our planned analyses might only include oncogenic mutations, which should theoretically remove many of the germline variants making it through the tumor-only pipelines.  I was curious whether TMB shows the same bias if we use only the oncogenic mutations in calculating TMB.
+
+This will obviously remove our ability to use rule-of-thumb values for TMB.  For example, 10 is probably too high a threshold for hypermutated samples now.  However, if we wanted to exclude the top 5% in TMB, this may be somewhat useful.
+
+Here are the previous plots, using only oncogenic alterations in calculating TMB:
+
+```{r, include = T}
+gg_tmb_dist_panel_onco
+```
+
+```{r, include = T}
+gg_tmb_ecdf_panel_onco
+```
+
+**Notes:**
+
+- In both plots, MSK looks comparable to the other institutions when we only use oncogenic mutations in calculating TMB.
+- Models (not reported) gave similar conclusions:  MSK is either not notably different.
+- A new rule of thumb for hypermutated could possibly be estimated by looking at MSK's participants (comparing their raw TMB to a TMB calculated with only oncogenic mutations).
+
+
+
 
 
 
@@ -1577,4 +1582,16 @@ dft_alt %>%
 
 
 
+
+```{r}
+dft_alt %>% 
+  count(hugo, alt_type) %>% 
+  pivot_wider(names_from = 'alt_type', values_from = 'n') %>%
+  mutate(across(
+    .cols = -hugo,
+    .fns = \(x) if_else(is.na(x), 0, x)
+  )) %>%
+  mutate(n_hugo = Mutation + Fusion + CNA) %>%
+  arrange(desc(n_hugo), hugo)
+```
 

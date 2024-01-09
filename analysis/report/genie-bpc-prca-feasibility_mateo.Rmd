@@ -145,7 +145,10 @@ dft_joined_times <- full_join(
     by = 'record_id',
     relationship = 'one-to-one'
   )
+```
 
+
+```{r}
 n_cohort <- nrow(dft_ca_ind)
 
 n_nha <- dft_joined_times %>%
@@ -157,11 +160,17 @@ n_mcrpc <- dft_joined_times %>%
   nrow(.)
 
 n_nha_anytime_mcrpc <- dft_joined_times %>%
-  filter(!is.na(dx_dmet_yrs) & !is.na(dx_crpc_yrs) & !is.na(first_nha_yrs)) %>%
+  filter(!is.na(dx_dmet_yrs) & 
+           !is.na(dx_crpc_yrs) & 
+           !is.na(first_nha_yrs)) %>%
   nrow(.)
 
 n_nha_post_mcrpc <- dft_joined_times %>%
-  filter(!is.na(dx_dmet_yrs) & !is.na(dx_crpc_yrs) & !is.na(first_nha_yrs)) %>%
+  filter(
+    !is.na(dx_dmet_yrs) & 
+      !is.na(dx_crpc_yrs) & 
+      !is.na(first_nha_yrs)
+  ) %>%
   filter(last_nha_yrs > dx_dmet_yrs) %>%
   filter(last_nha_yrs > dx_crpc_yrs) %>%
   nrow(.)

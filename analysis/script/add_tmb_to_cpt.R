@@ -170,6 +170,26 @@ dft_cpt_addon <- left_join(
   ) %>%
   mutate(numberMutations = if_else(is.na(numberMutations), 0, numberMutations)) 
 
+# Update: I'm also interested in what happens we limit to oncogenic mutations.
+# This is the same steps as above, with one extra filter and a new name.
+tumor_aggr_onco <- dft_maf %>% 
+  filter(ONCOGENIC %in% c("Likely Oncogenic", "Oncogenic")) %>%
+  # Doing the filter for silent mutations should be entirely redundant here.
+  dplyr::count(Tumor_Sample_Barcode, name = "numberMutations_onco")
+
+dft_cpt_addon <- left_join(
+  dft_cpt_addon,
+  tumor_aggr_onco,
+  by = c(SAMPLE_ID = "Tumor_Sample_Barcode")
+) %>%
+  mutate(
+    numberMutations_onco = if_else(
+      is.na(numberMutations_onco), 
+      0, 
+      numberMutations_onco
+    )
+  ) 
+
 dft_cpt_addon %<>%
   left_join(
     .,
@@ -178,7 +198,10 @@ dft_cpt_addon %<>%
   )
 
 dft_cpt_addon %<>%
-  mutate(tmb_Mb = numberMutations / (bpsExon / 10^6))
+  mutate(
+    tmb_Mb = numberMutations / (bpsExon / 10^6),
+    tmb_Mb_onco = numberMutations_onco / (bpsExon / 10^6)
+  )
 
 # Note:  The code we're adapting used <2 as low, 2-16 as mid and >16 as high.
 
@@ -193,7 +216,8 @@ dft_cpt_addon %<>%
     n_mut = numberMutations,
     panel_bp = bps,
     panel_bp_exon = bpsExon,
-    tmb_Mb
+    tmb_Mb,
+    tmb_Mb_onco
   )
   
 dft_cpt_aug <- left_join(
