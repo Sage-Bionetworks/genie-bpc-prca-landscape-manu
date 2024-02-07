@@ -821,6 +821,7 @@ gg_top_drug_comb <- cowplot::plot_grid(
   gg_top_drugs, gg_top_drugs_crpc,
   ncol = 1
 )
+
     
 ```
 
@@ -1280,6 +1281,33 @@ dft_tm_miss_units %>%
 ```
 
 
+```{r, eval = F}
+# Just curious for a side aim, not critical:
+
+dft_drug_dmet <- dft_dmet_block %>%
+  filter(dmet_status %in% "Distant Metastasis") %>%
+  mutate(dmet_start_days = dx_block_start * 365.25) %>%
+  select(record_id, dmet_start_days) %>%
+  inner_join(
+    dft_drug, 
+    ., 
+    by = "record_id",
+    relationship = "many-to-one"
+  )
+
+dft_drug_dmet %<>% 
+  # dx_drug_start_int is the number of days from dx to start of drug.
+  filter(dx_drug_start_int >= dmet_start_days)
+
+dfp_top_drugs_dmet <- dft_drug_dmet %>%
+  group_by(record_id, drug) %>%
+  summarize(observed = 1, .groups = "drop") %>%
+  group_by(drug) %>%
+  summarize(n = sum(observed)) %>%
+  arrange(desc(n)) %>%
+  head(10) %>%
+  mutate(drug = str_replace(drug, "\\(.*\\)", ""))
+```
 
 
 

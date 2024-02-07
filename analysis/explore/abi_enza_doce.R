@@ -38,6 +38,3 @@ make_sunburst_input(
 
 
   
-Abiraterone Acetate
-Enzalutamide
-Docetaxel

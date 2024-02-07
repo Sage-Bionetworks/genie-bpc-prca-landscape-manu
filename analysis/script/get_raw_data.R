@@ -8,12 +8,13 @@
 # The Synapse folder containing the clinical data files.
 synid_clin_data <- "syn50612196"
 synid_cbio_data <- "syn50697637"
+synid_assay_info <- 'syn22159815' # one-off, from main GENIE 12.1 public
 # genomic files to grab (panels are all grabbed based on file name):
 geno_files_included <- c(
   "data_mutations_extended.txt",
   "data_CNA.txt",
   "data_fusions.txt",
-  "data_cna_hg19.seg"
+  "data_cna_hg19.seg",
   # don't see a genomic information file
 )
   
@@ -72,6 +73,13 @@ syn_store_in_dataraw_geno <- function(sid) {
 
 purrr::walk(.x = df_geno_children$id, 
             .f = syn_store_in_dataraw_geno)
+
+syn_store_in_dataraw_geno(
+  synid_assay_info
+)
+
+
+
 
 
 

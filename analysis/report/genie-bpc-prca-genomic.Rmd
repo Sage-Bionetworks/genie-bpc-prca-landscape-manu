@@ -1011,6 +1011,59 @@ dft_mutation_effect %>%
 
 
 
+```{r}
+# Probably better to use a binary for tumor-normal and tumor-only panels rather than institution, but I'm in a hurry.
+dft_vaf <- dft_cpt %>% 
+  select(
+    sample_id = cpt_genie_sample_id, 
+    institution
+  ) %>%
+  left_join(
+    dft_alt,
+    .,
+    by = "sample_id"
+  ) %>%
+  filter(alt_type %in% "Mutation")
+
+
+gg_vaf_all <- dft_vaf %>%
+  plot_vaf_density_by_group(
+    .,
+    plot_title = "VAF density, all mutations"
+  )
+                          
+gg_vaf_onco <- dft_vaf %>%
+  filter(oncogenic %in% c("Likely Oncogenic", "Oncogenic")) %>%
+  plot_vaf_density_by_group(
+    .,
+    plot_title = "VAF density, oncogenic mutations"
+  )
+```
+
+
+### *R2.4.5 OncoKB effect on VAF
+
+*Note:* I want to thank **Walid Chatila** for tremendously helpful conversations on this section, including helping me understand VAF and plot design.
+
+We will define variant allele frequency (VAF) as the proportion of reads at a genomic locus which support the presence of a variant.  Reference sequence reads are the reads which would **not** support a variant, so this is just the count of alteration reads over the total number of reads (using `t_alt_count` and `t_ref_count` from the MAF file).
+
+There are some helpful heuristics for VAF:
+
+- A VAF indicates a *possible* germline variant, owing to having one copy from each parent and one of those being altered.
+- Very low VAFs (5% for example) may indicate subclonal mutations, VAFs between 5 and 50% would be typically for alterations only found in the tumor.
+
+The following graphs show the VAF in our cohort with and without OncoKB filtering for oncogenic mutations:
+
+```{r, include = T, fig.height = 3}
+gg_vaf_all
+gg_vaf_onco
+```
+
+Comments:
+
+- The tumor-only sites 
+
+
 
 ```{r}
 dft_inst_freq <- dft_gt_any_alt %>%

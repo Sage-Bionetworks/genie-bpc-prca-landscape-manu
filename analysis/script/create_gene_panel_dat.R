@@ -6,6 +6,10 @@ library(here)
 library(fs)
 purrr::walk(.x = fs::dir_ls(here('R')), .f = source)
 
+dft_assay_info <- readr::read_tsv(
+  here('data-raw', 'genomic', 'assay_information.txt')
+)
+
 vec_gene_panels <- fs::dir_ls(here('data-raw', 'genomic')) %>%
   str_filter(., 'data_gene_panel_.*')
 
@@ -80,36 +84,37 @@ saveRDS(
 
 
 
+# Get the information we need from the assay info.
 
 
-
-# Metadata from the data guide (main GENIE data guide, table 4) which
-#  I'm manually typing in:
-# Specifically this is gene-level CNA and 'structural variants' are fusions.
-dft_gp_meta <- tribble(
-  ~panel, ~tested_cna, ~tested_fusion,
-  "MSK-IMPACT341", 1, 1,
-  "MSK-IMPACT410", 1, 1,
-  "MSK-IMPACT468", 1, 1,
-  "DFCI-ONCOPANEL-1", 1, 1,
-  "DFCI-ONCOPANEL-2", 1, 1,
-  "DFCI-ONCOPANEL-3", 1, 1,
-  # Making a guess here since it doesn't show up explicitly:
-  "DFCI-ONCOPANEL-3.1", 1, 1,
-  "VICC-01-T7", 1, 1,
-  "VICC-01-T5A", 1, 1,
-  "UHN-48-V1", 0, 0, 
-  "UHN-50-V2", 0, 0,
-  "UHN-555-V1", 1, 1,
-  "UHN-555-PROSTATE-V1", 1, 1,
-  "UHN-OCA-V3", 0, 1
-) %>%
+dft_gp_meta <- dft_assay_info %>% 
+  rename_all(tolower) %>%
+  filter(seq_assay_id %in% unique(dft_cpt$cpt_seq_assay_id)) %>%
+  select(
+    seq_assay_id,
+    alteration_types,
+    calling_strategy
+  ) %>%
+  mutate(
+    # for either intragenic or gene level CNAs:
+    tested_cna = str_detect(alteration_types, "_cna"),
+    tested_fusion = str_detect(alteration_types, "structural_variants")
+  ) %>%
+  select(
+    panel = seq_assay_id,
+    tested_cna,
+    tested_fusion
+  ) %>%
   mutate(
     across(
       .cols = c(tested_cna, tested_fusion),
       .fns = as.logical
     )
-  )
+  ) %>%
+  arrange(panel)
+
+
+
 
 gp_all %<>%
   left_join(
