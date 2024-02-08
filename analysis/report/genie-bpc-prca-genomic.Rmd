@@ -486,6 +486,7 @@ gg_tmb_dist
 Notes:
 
 - `r round(prop_over_tmb_10*100,1)`% of the samples in this dataset have a TMB greater than 10 mut/Mb.  This is the pre-specified threshold we hoped to use for hypermutated samples in later analyses.
+- A later section (currently R2.4.6) shows this chart again for 
 
 
 
@@ -704,50 +705,6 @@ ft_lm_tmb
 
 
 
-
-```{r}
-gg_tmb_dist_panel_onco <- plot_boxplot_by_panel(
-  dat = dft_tmb,
-  x_var = 'tmb_Mb_onco',
-  plot_title = "Tumor mutation burden sample distribution",
-  plot_subtitle = "only including oncogenic mutations",
-  x_lab = "TMB (oncogenic mutations per megabase)"
-)
-
-gg_tmb_ecdf_panel_onco <- plot_ecdf_by_panel(
-  dat = dft_tmb,
-  x_var = 'tmb_Mb_onco',
-  plot_title = "Tumor mutation burden sample distribution",
-  plot_subtitle = "only including oncogenic mutations",
-  x_lab = "TMB (oncogenic mutations per megabase)"
-)
-```
-
-
-
-
-
-### *R2.3.5 TMB by panel (oncogenic only)
-
-We've identified a potential problem with TMB: tumor-normal samples may have a systematically lower TMB than tumor-only samples.  However, some of our planned analyses might only include oncogenic mutations, which should theoretically remove many of the germline variants making it through the tumor-only pipelines.  I was curious whether TMB shows the same bias if we use only the oncogenic mutations in calculating TMB.
-
-This will obviously remove our ability to use rule-of-thumb values for TMB.  For example, 10 is probably too high a threshold for hypermutated samples now.  However, if we wanted to exclude the top 5% in TMB, this may be somewhat useful.
-
-Here are the previous plots, using only oncogenic alterations in calculating TMB:
-
-```{r, include = T}
-gg_tmb_dist_panel_onco
-```
-
-```{r, include = T}
-gg_tmb_ecdf_panel_onco
-```
-
-**Notes:**
-
-- In both plots, MSK looks comparable to the other institutions when we only use oncogenic mutations in calculating TMB.
-- Models (not reported) gave similar conclusions:  MSK is either not notably different.
-- A new rule of thumb for hypermutated could possibly be estimated by looking at MSK's participants (comparing their raw TMB to a TMB calculated with only oncogenic mutations).
 
 
 
@@ -1015,8 +972,9 @@ dft_mutation_effect %>%
 # Probably better to use a binary for tumor-normal and tumor-only panels rather than institution, but I'm in a hurry.
 dft_vaf <- dft_cpt %>% 
   select(
-    sample_id = cpt_genie_sample_id, 
-    institution
+    sample_id = cpt_genie_sample_id,
+    institution,
+    cpt_seq_assay_id
   ) %>%
   left_join(
     dft_alt,
@@ -1025,31 +983,73 @@ dft_vaf <- dft_cpt %>%
   ) %>%
   filter(alt_type %in% "Mutation")
 
+# add the calling strategy in:
+dft_vaf <- dft_gp_all %>% 
+  select(cpt_seq_assay_id, calling = calling_strategy) %>%
+  mutate(cpt_seq_assay_id = as.character(cpt_seq_assay_id)) %>%
+  distinct(.) %>%
+  arrange(cpt_seq_assay_id) %>%
+  left_join(
+    dft_vaf, 
+    .,
+    by = 'cpt_seq_assay_id'
+  )
 
 gg_vaf_all <- dft_vaf %>%
   plot_vaf_density_by_group(
     .,
-    plot_title = "VAF density, all mutations"
+    plot_title = "VAF density, all mutations",
+    group_var = "calling"
   )
                           
 gg_vaf_onco <- dft_vaf %>%
   filter(oncogenic %in% c("Likely Oncogenic", "Oncogenic")) %>%
   plot_vaf_density_by_group(
     .,
-    plot_title = "VAF density, oncogenic mutations"
+    plot_title = "VAF density, oncogenic mutations",
+    group_var = "calling"
   )
+
+gg_vaf_by_site <- dft_vaf %>%
+  plot_vaf_density_by_group(
+    .,
+    plot_title = "VAF, all",
+    group_var = "institution",
+    x_axis_lab_spacing = 0.5
+  ) +
+  theme(
+    legend.position = "bottom"
+  )
+
+gg_vaf_by_site_onco <- dft_vaf %>%
+  filter(oncogenic %in% c("Likely Oncogenic", "Oncogenic")) %>%
+  plot_vaf_density_by_group(
+    .,
+    plot_title = "VAF, oncogenic",
+    group_var = "institution",
+    x_axis_lab_spacing = 0.5
+  ) +
+  theme(
+    legend.position = "bottom"
+  )
+
+gg_vaf_by_site_comb <- cowplot::plot_grid(
+  gg_vaf_by_site,
+  gg_vaf_by_site_onco,
+  ncol = 2
+) 
 ```
 
 
 ### *R2.4.5 OncoKB effect on VAF
 
-*Note:* I want to thank **Walid Chatila** for tremendously helpful conversations on this section, including helping me understand VAF and plot design.
+*Note:* I want to thank **Walid Chatila** for tremendously helpful conversations on this section, including helping me understand VAF and his design of the density plots below.
 
 We will define variant allele frequency (VAF) as the proportion of reads at a genomic locus which support the presence of a variant.  Reference sequence reads are the reads which would **not** support a variant, so this is just the count of alteration reads over the total number of reads (using `t_alt_count` and `t_ref_count` from the MAF file).
 
 There are some helpful heuristics for VAF:
 
-- A VAF indicates a *possible* germline variant, owing to having one copy from each parent and one of those being altered.
+- A VAF of about 50% often indicates a germline variant, owing to having one copy from each parent and one of those being altered.
 - Very low VAFs (5% for example) may indicate subclonal mutations, VAFs between 5 and 50% would be typically for alterations only found in the tumor.
 
 The following graphs show the VAF in our cohort with and without OncoKB filtering for oncogenic mutations:
@@ -1061,7 +1061,149 @@ gg_vaf_onco
 
 Comments:
 
-- The tumor-only sites 
+- The tumor-only sites have a large peak at 50% VAF, indicating we likely have many mutations which are germline variants in the data.
+- After limiting our pool of mutations to only those tagged as oncogenic, the VAF distribution of mutations looks similar between tumor-only and tumor-normal panels.
+- This analysis does not deal with fusions or CNAs.  OncoKB *does* apply to these alteration types, so we might reasonably cross our fingers and hope that those are better, too.
+
+One final comment here: tumor-normal is almost the same as "panels from MSK" in our cohort (there is also one tumor-normal panel from UHN, representing about 3% of tumor-normal samples).  If we show this in a paper I think grouping by tumor-normal vs tumor-only is more principled and less controversial, but here are the same charts by institution for the sake of intuition:
+
+```{r, include = T, fig.height = 3}
+gg_vaf_by_site_comb
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+gg_tmb_dist_panel_onco <- plot_boxplot_by_panel(
+  dat = dft_tmb,
+  x_var = 'tmb_Mb_onco',
+  plot_title = "Tumor mutation burden sample distribution",
+  plot_subtitle = "only including oncogenic mutations",
+  x_lab = "TOMB (oncogenic mutations per megabase)"
+)
+
+gg_tmb_ecdf_panel_onco <- plot_ecdf_by_panel(
+  dat = dft_tmb,
+  x_var = 'tmb_Mb_onco',
+  plot_title = "Tumor mutation burden sample distribution",
+  plot_subtitle = "only including oncogenic mutations",
+  x_lab = "TOMB (oncogenic mutations per megabase)"
+)
+```
+
+
+### *R2.4.6 OncoKB effect on TMB
+
+We've identified a sign from TMB which indicates a possible problem in our data: tumor-normal samples may have a systematically lower (and more typical) TMB than tumor-only samples.  We now investigate whether this persists when we limit our pool of alterations to only oncogenic ones.  I will call TMB calculated using only oncogenic alterations "tumor oncogenic mutation burden" (TOMB), just to establish a short hand for this report (not committed to using that term beyond).
+
+Here are the previous plots, using only oncogenic alterations in calculating TMB:
+
+```{r, include = T}
+gg_tmb_dist_panel_onco
+```
+
+```{r, include = T}
+gg_tmb_ecdf_panel_onco
+```
+
+**Notes:**
+
+- In both plots, MSK looks comparable to the other institutions when we only use oncogenic mutations in calculating TMB.
+- Models (not reported) gave similar conclusions:  MSK is either not notably different.
+- A new rule of thumb for hypermutated could possibly be estimated by looking at MSK's participants (comparing their raw TMB to a TMB calculated with only oncogenic mutations).
+- This will obviously remove our ability to use rule-of-thumb values for TMB.  For example, 10 is probably too high a threshold for hypermutated samples now.  More on this later.
+
+
+
+
+
+
+
+
+```{r}
+dft_tmb_tomb <- dft_cpt %>%
+  select(record_id, cpt_seq_assay_id, contains('tmb')) %>%
+  left_join(
+    ., 
+    distinct(select(dft_gp_all, cpt_seq_assay_id, calling_strategy)),
+    by = "cpt_seq_assay_id"
+  )
+
+gg_cut_points <- ggplot(
+  dft_tmb_tomb,
+  aes(x = tmb_Mb_onco + 0.1, y = tmb_Mb + 0.1, color = calling_strategy)
+) + 
+  geom_abline(intercept = 0, slope = 1, linetype = "12") + 
+  geom_jitter(alpha = 0.5, width = 0.1, height = 0.1) +
+  scale_x_continuous(trans = 'log10') +
+  scale_y_continuous(trans = 'log10') + 
+  geom_vline(xintercept = 4.7) + 
+  geom_vline(xintercept = 5.9) + 
+  theme_bw() +
+  labs(
+    x = "TOMB (oncogenic)", y = "TMB (raw)",
+    title = "TMB, TOMB and proposed cut points",
+    subtitle = "Right of the black lines would be 'hypermutated'"
+  ) +
+  scale_color_vibrant()
+       
+```
+
+
+### *R2.4.7 New hypermutated threshold?
+
+A priori we discussed using a TMB threshold of 10 mut/Mb to identify hypermutated individuals.  In the above work we established that we can possibly alleviate some of the bias between tumor-only and tumor-normal samples if we only consider oncogenic alterations.  If we wanted to use this, we would need to establish a new threshold which uses TOMB in place of TMB.  Two reasonable approaches occur to me:
+
+- *Percentile exclusion*. Using tumor-normal samples, find the proportion of samples (X) which are over a TMB of 10.  Declare the top X% of samples in the whole cohort as hypermutated by TOMB.
+  - Result:  Excluding just over 6% of samples, which is the proportion of tumor-normal samples with a raw TMB over 10, would eliminate those with a **TOMB >= 4.7**.
+- *Find a classifier cut point for TOMB*.  Using tumor-normal samples, find a metric-optimal cutpoint for TOMB which classifies samples into hypermutated (yes/no) for raw TMB.  Then apply this to all samples on TOMB (where things look more normalized).
+  - Result:  **TOMB >= 5.9** is a good cut point using most metrics (F-measure, accuracy, and Cohen's kappa all agree).
+
+Here's a plot that shows TMB vs TOMB and those cut points:
+
+```{r, fig.height = 4, include = T}
+gg_cut_points
+```
+
+**Follow-up** Question for the group:  Does using a hypermutated threshold based on an oncogenic calculation of TMB seem tenable for this paper?  Keeping in mind that the applications of a hypermutated label are currently very limited.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1319,6 +1461,13 @@ dft_top_gene_bin_sens %<>%
   # just ordering:
   select(sample_id, vec_genes_in_co_occur_plot)
 
+# we want to force the same group of genes for the last test since
+#   this is a sensitivity analysis.  This gets those in their axis order:
+vec_genes_in_assoc_test <- dft_gene_assoc$var1_lab %>%
+  levels(.) %>%
+  str_replace_all(
+    ., "[:space:].*", ""
+  )
 
 dft_gene_assoc_sens <- test_fisher_co_occur(
   dat = dft_top_gene_bin_sens,
@@ -1427,10 +1576,16 @@ gg_pathway_assoc
 - With one exception the pathways are positively associated, so a sample with an alteration in pathway X is more likely to have an alteration in pathway Y.  
 - This could be related to samples with very high rates of alteration/mutation.
 
+
+
+
+
+
+
 ```{r}
 
 dft_cpt_no_hyper_mut <- dft_cpt %>% 
-  filter(tmb_Mb < 10)
+  filter(tmb_Mb_onco < 5.9) # see above on threshold.
 
 dft_pathway_bin_no_hyper_mut <- create_pathway_binary(
   dat_cpt = dft_cpt_no_hyper_mut,
@@ -1475,9 +1630,11 @@ gg_pathway_assoc_no_hyper_mut
 
 
 
-### R2.6.2b Co-occurence, pathway, hypermutated removed
+### *R2.6.2b Co-occurence, pathway, hypermutated removed
 
 A variant of the previous plot with hypermutated samples removed.  Hypermutated is defined as a TMB of greater than 10 mutations per megabase.
+
+**Update:** Updated the definition of hypermuted to only include those with TOMB < 5.9 (TOMB = TMB only considering oncogenic mutations).
 
 ```{r, include = T}
 gg_pathway_assoc_no_hyper_mut
@@ -1485,8 +1642,8 @@ gg_pathway_assoc_no_hyper_mut
 
 Notes:
 
-- We hypothesized that the completed dominance of positive pathway associations in the previous plot might be due to hypermutated samples.  
-- As expected, with the hypermutated samples removed we see far fewer significant results and some negative association estimates.
+- We hypothesized that the complete dominance of positive pathway associations in the previous plot might be due to hypermutated samples.  
+- As expected, with the hypermutated samples removed we see fewer significant results and some negative association estimates (none significant).
 
 
 

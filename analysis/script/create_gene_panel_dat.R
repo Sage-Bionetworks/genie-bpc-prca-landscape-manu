@@ -86,7 +86,6 @@ saveRDS(
 
 # Get the information we need from the assay info.
 
-
 dft_gp_meta <- dft_assay_info %>% 
   rename_all(tolower) %>%
   filter(seq_assay_id %in% unique(dft_cpt$cpt_seq_assay_id)) %>%
@@ -103,7 +102,8 @@ dft_gp_meta <- dft_assay_info %>%
   select(
     panel = seq_assay_id,
     tested_cna,
-    tested_fusion
+    tested_fusion,
+    calling_strategy
   ) %>%
   mutate(
     across(

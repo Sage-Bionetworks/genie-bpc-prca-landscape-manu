@@ -31,16 +31,17 @@ plot_vaf_density_by_group <- function(
       expand = c(0,0),
       limits = c(0,1)
     ) + 
-    scale_y_continuous(expand = c(0,0)) + 
+    scale_y_continuous(expand = expansion(add = c(0,0), mult = c(0, 0.05))) + 
     labs(
       x = "Variant Allele Frequency",
       y = "Mutations (density)",
-      plot = plot_title
+      title = plot_title
     ) + 
     khroma::scale_color_okabeito() + 
     khroma::scale_fill_okabeito() + 
     theme_classic() + 
     theme(
+      plot.title.position = "plot",
       axis.text.y = element_blank(),
       axis.ticks.y = element_blank()
     )

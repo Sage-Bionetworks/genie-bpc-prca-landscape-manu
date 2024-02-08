@@ -1,5 +1,5 @@
 Important:
-- Update VAF figures to be tumor-only vs tumor-normal instead of institution.
+- Get the cutpoint code to be programmatic.
 - The data should be loaded from cleaned up copies in data rather than data-raw.  This would allow some of the processing like grabbing only drugs associated with cancer regimens to be propaged more cleanly.
 - The sunburst code seems to still uses the data lists - not great.
 - Move the drug data input/output to /data/clin
