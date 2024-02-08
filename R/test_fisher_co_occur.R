@@ -2,7 +2,8 @@ test_fisher_co_occur <- function(
     dat,
     ignore_cols = character(0),
     top = 5,
-    alpha = 0.05
+    alpha = 0.05,
+    axis_order = NULL
 ) {
   dat_top <- get_binary_feature_pos(
     dat,
@@ -13,6 +14,23 @@ test_fisher_co_occur <- function(
     mutate(rank = 1:n()) %>%
     filter(rank <= top)
   
+  if (!is.null(axis_order)) {
+    if (any( !(dat_top$feature %in% axis_order))) {
+      cli_abort("axis_order does not contain all the top genes - needs fixing!")
+    }
+    
+    dat_top %<>%
+      mutate(.temp = factor(feature, levels = axis_order)) %>%
+      arrange(.temp) %>%
+      select(-.temp) 
+  }
+  
+  
+  dat_top %<>%
+    mutate(
+      # just matching the maftools syntax to start:
+      feat_lab = paste0(feature, " [", num_pos, "]")
+    )
   
   trimmed_dat <- dat %>%
     select(
@@ -79,12 +97,6 @@ test_fisher_co_occur <- function(
     relocate(
       p.value, .after = conf.high
     ) 
-  
-  dat_top %<>%
-    mutate(
-      # just matching the maftools syntax to start:
-      feat_lab = paste0(feature, " [", num_pos, "]")
-    )
   
   test_skel %<>%
     left_join(

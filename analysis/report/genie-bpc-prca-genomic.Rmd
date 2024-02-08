@@ -1170,7 +1170,7 @@ A priori we discussed using a TMB threshold of 10 mut/Mb to identify hypermutate
 - *Find a classifier cut point for TOMB*.  Using tumor-normal samples, find a metric-optimal cutpoint for TOMB which classifies samples into hypermutated (yes/no) for raw TMB.  Then apply this to all samples on TOMB (where things look more normalized).
   - Result:  **TOMB >= 5.9** is a good cut point using most metrics (F-measure, accuracy, and Cohen's kappa all agree).
 
-Here's a plot that shows TMB vs TOMB and those cut points:
+Here's a plot that shows TMB vs TOMB and those two stated cut points:
 
 ```{r, fig.height = 4, include = T}
 gg_cut_points
@@ -1405,11 +1405,14 @@ gg_gene_assoc
 
 ```{r}
 # Sensitivity analysis to the above:  Only people who had all these genes tested in their panels.
-vec_genes_in_co_occur_plot <- (
-      c(dft_gene_assoc$var1, 
-        dft_gene_assoc$var2) %>% 
-        unique
-    )
+# we want to force the same group of genes for the last test since
+#   this is a sensitivity analysis.  This gets those in their axis
+#. order:
+vec_genes_in_co_occur_plot <- dft_gene_assoc$var1_lab %>%
+  levels(.) %>%
+  str_replace_all(
+    ., "[:space:].*", ""
+  )
 
 vec_panels_with_all_top10 <- dft_gp_all %>%
   filter(
@@ -1461,20 +1464,15 @@ dft_top_gene_bin_sens %<>%
   # just ordering:
   select(sample_id, vec_genes_in_co_occur_plot)
 
-# we want to force the same group of genes for the last test since
-#   this is a sensitivity analysis.  This gets those in their axis order:
-vec_genes_in_assoc_test <- dft_gene_assoc$var1_lab %>%
-  levels(.) %>%
-  str_replace_all(
-    ., "[:space:].*", ""
-  )
-
 dft_gene_assoc_sens <- test_fisher_co_occur(
   dat = dft_top_gene_bin_sens,
   ignore_cols = c("sample_id"),
   top = 10,
-  alpha = 0.05
+  alpha = 0.05,
+  axis_order = vec_genes_in_co_occur_plot
 )
+
+
 
 dft_gene_assoc_sens %<>%
   mutate(
@@ -1504,9 +1502,32 @@ gg_gene_assoc_sens <- plot_binary_association(
 ```
 
 
-### R2.6.1b Co-occurence, top 10 genes, sensitivity
+```{r}
+# get the number of people in each cell from both plots for the sake of text explanation:
+help_cell_table_total <- function(dat) {
+  n_s <- dat %>%
+    mutate(cell_n = ct_11 + ct_10 + ct_01 + ct_00) %>% 
+    pull(cell_n)
+  
+  if (var(n_s, na.rm = T) > 0) {
+    cli_abort("Problem:  Cells have different counts")
+  } 
+  return(unique(n_s))
+}
 
-As a sensitivity analysis, we discussed repeating the previous plot on only subjects who had panels where those top 10 genes were tested.  The following plot shows this:
+n_cell_gene_assoc <- help_cell_table_total(dft_gene_assoc)
+n_cell_gene_assoc_sens <- help_cell_table_total(dft_gene_assoc_sens)
+```
+
+
+
+### *R2.6.1b Co-occurence, top 10 genes, sensitivity
+
+As a sensitivity analysis, we discussed repeating the previous plot on only subjects who had panels where those top 10 genes were tested.  This reduces the number of samples from `r n_cell_gene_assoc` in each cell of the previous plot to `r n_cell_gene_assoc_sens` here.
+
+The axis order here mimics the "main" analysis, even though the ordering of the raw counts is different (e.g. TMPRSS2 now has more alterations than TP53, but we keep them in the order they previously appeared).  The goal is facilitating easier visual comparison.
+
+The following plot shows this:
 
 ```{r, include = T}
 gg_gene_assoc_sens
@@ -1514,7 +1535,7 @@ gg_gene_assoc_sens
 
 Notes:
 
-- The results are notably different from the previous plot.  
+- Some of the weakly significant results from the previous plot have faded here.  The strong results generally remain.
 - There's a circular element to our sensitivity logic here.  To be included in the first co-occurence plot, a gene must have been in many panels because we only included genes with a large number of total alterations (top 10 by count).  This excludes genes not universally tested but with high alteration frequencies (example: KMT2C, which we know has a high alteration frequency from R2.4.1, but is tested in only about 700 of 1200 samples).
   - Might be better to limit to genes with high alteration frequency (e.g. 5%) and a generous threshold for the number tested, as in R2.4.1, rather than taking the top 10 by bulk count of altered samples.
 
@@ -1558,8 +1579,6 @@ gg_pathway_assoc <- plot_binary_association(
   )
 
 gg_pathway_assoc
-
-
 
 ```
 
@@ -1634,7 +1653,7 @@ gg_pathway_assoc_no_hyper_mut
 
 A variant of the previous plot with hypermutated samples removed.  Hypermutated is defined as a TMB of greater than 10 mutations per megabase.
 
-**Update:** Updated the definition of hypermuted to only include those with TOMB < 5.9 (TOMB = TMB only considering oncogenic mutations).
+**Update:** Updated the definition of hypermuted to only include those with TOMB < 5.9 (TOMB = TMB only considering oncogenic mutations).  The effect is similar.
 
 ```{r, include = T}
 gg_pathway_assoc_no_hyper_mut
@@ -1725,10 +1744,6 @@ gg_pathway_ddr_assoc
 
 ## Upcoming
 
-- Lookup table for alterations.
-- Further requests
-
-
 ## Details/Appendices
 
 ### Structural variants
@@ -1787,6 +1802,39 @@ dft_alt %>%
   autofit(.)
 ```
 
+
+
+```{r}
+dft_gene_assoc_spop_brca2 <- test_fisher_co_occur(
+  dat = select(dft_top_gene_bin, sample_id, BRCA2, SPOP),
+  ignore_cols = c("sample_id"),
+  top = 2,
+  alpha = 0.05
+)
+
+dft_gene_assoc_spop_brca2 %>% glimpse
+```
+
+### *SPOP/BRCA2
+
+Irbaz asked about a specific co-occurrence which had been seen in the literature:  SPOP and BRCA2.  To do this properly we would want to expand our association framework to include genes at this level of occurence (BRCA2 is just outside the "top 10" arbitrary cutoff).
+
+However, in the interest of exploration, we can just do the Fisher's exact test without multiple testing correction to see if there's anything there.  Apologies for the junky text output, but `ct_` variables indicate the contingency table values:
+
+```{r, include = T}
+dft_gene_assoc_spop_brca2 %>% 
+  select(
+    var1_lab, 
+    var2_lab, 
+    contains("ct_"), 
+    odds_ratio,
+    p.value
+  ) %>%
+  glimpse
+  
+```
+
+**Conclusions:** These are not significantly associated in our sample, and are unlikely to be under any (other) reasonable method.  There are only 4 samples which had both an SPOP and BRCA2 alteration.
 
 
 
