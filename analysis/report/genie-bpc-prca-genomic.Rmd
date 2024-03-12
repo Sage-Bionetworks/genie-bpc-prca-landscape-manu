@@ -471,7 +471,7 @@ prop_over_tmb_10 <- dft_cpt %>%
 
 ```
 
-### *R2.3.1 TMB distribution
+### R2.3.1 TMB distribution
 
 A plot showing the tumor mutation burden for each sample in mutations per megabase.  Notes:
 
@@ -521,7 +521,7 @@ gg_tmb_dist_panel <- plot_boxplot_by_panel(
 
 ```
 
-### *R2.3.2 TMB by panel
+### R2.3.2 TMB by panel
 
 In our Dec 2023 meeting there was consensus that the TMB distribution above seemed to have an excess number of individuals with high TMB.  One reason for this may be that most GENIE sites have tumor only sequencing.  Even with the efforts to remove germline mutations, some could slip through, artificially inflating the TMB of those samples.
 
@@ -567,7 +567,7 @@ ft_tmb_over_10 <- dft_tmb %>%
 
 ```
 
-### *R2.3.3 TMB eCDF by site
+### R2.3.3 TMB eCDF by site
 
 Another way we can view this is showing the cumulative distribution function for each site.  All MSK panels are tumor-normal and all others are tumor-only.  The black line is at TMB = 10.
 
@@ -685,7 +685,7 @@ ft_lm_tmb %<>%
 
 ```
 
-### *R2.3.4 TMB model (quick) 
+### R2.3.4 TMB model (quick) 
 
 Above we see some evidence that MSK has a lower TMB on average than the other institutions, and tumor-normal sequencing is our hypothesized explanation.  Another possibility is confounding, which we consider briefly here by fitting a few models.
 
@@ -1039,7 +1039,7 @@ gg_vaf_by_site_comb <- cowplot::plot_grid(
 ```
 
 
-### *R2.4.5 OncoKB effect on VAF
+### R2.4.5 OncoKB effect on VAF
 
 *Note:* I want to thank **Walid Chatila** for tremendously helpful conversations on this section, including helping me understand VAF.  Credit also to him for the design of the density plots below (for the Breast cancer cohort), which have been previously shared at GENIE meetings.
 
@@ -1102,7 +1102,7 @@ gg_tmb_ecdf_panel_onco <- plot_ecdf_by_panel(
 ```
 
 
-### *R2.4.6 OncoKB effect on TMB
+### R2.4.6 OncoKB effect on TMB
 
 We've identified a sign from TMB which indicates a possible problem in our data: tumor-normal samples may have a systematically lower (and more typical) TMB than tumor-only samples.  We now investigate whether this persists when we limit our pool of alterations to only oncogenic ones.  I will call TMB calculated using only oncogenic alterations "tumor oncogenic mutation burden" (TOMB), just to establish a short hand for this report (not committed to using that term beyond).
 
@@ -1685,72 +1685,12 @@ gg_pathway_assoc
 
 
 
-
-
-
-
-```{r}
-
-dft_cpt_no_hyper_mut <- dft_cpt %>% 
-  filter(tmb_Mb_onco < 5.9) # see above on threshold.
-
-dft_pathway_bin_no_hyper_mut <- create_pathway_binary(
-  dat_cpt = dft_cpt_no_hyper_mut,
-  dat_alt = dft_alt,
-  path_col = "pathway"
-)
-
-dft_pathway_assoc_no_hyper_mut <- test_fisher_co_occur(
-  dat = dft_pathway_bin_no_hyper_mut,
-  ignore_cols = c("sample_id", "None"),
-  top = 10, # no limit.
-  alpha = 0.05
-)
-
-dft_pathway_assoc_no_hyper_mut %<>%
-  mutate(
-    cont_table_lab = cont_table_lab_help(
-      ct_11 = ct_11,
-      ct_01 = ct_01,
-      ct_10 = ct_10,
-      ct_00 = ct_00
-    ),
-    p_value_adj = p.adjust(p.value, method = "BH")
-  )
-
-gg_pathway_assoc_no_hyper_mut <- plot_binary_association(
-  dat = dft_pathway_assoc_no_hyper_mut,
-  x_var = "var1_lab",
-  y_var = "var2_lab",
-  show_p_sig = T,
-  label_var = "cont_table_lab",
-  pval_var = "p_value_adj"
-)  + 
-  theme(
-    axis.text.x.top = element_text(angle = -20, hjust = 1)
-  )
-
-gg_pathway_assoc_no_hyper_mut
-
-
-```
-
-
-
 ### *R2.6.2b Co-occurence, pathway, hypermutated removed
 
-A variant of the previous plot with hypermutated samples removed.  Hypermutated is defined as a TMB of greater than 10 mutations per megabase.
+**Removed**  We don't have a suitable definition of hypermutated due to the presence of tumor-only (no matched normal) samples.
 
-**Update:** Updated the definition of hypermuted to only include those with TOMB < 5.9 (TOMB = TMB only considering oncogenic mutations).  The effect is similar.
+An exploration into developing a threshold using oncogenic alterations only in the calculation of TMB (which makes tumor-normal and tumor-only samples more similar) was presented in Feb 2024.  This has been removed for two good reasons: (1) too complicated and (2) not very useful, because we rely on a definition of hypermutated in so few analyses currently.
 
-```{r, include = T}
-gg_pathway_assoc_no_hyper_mut
-```
-
-Notes:
-
-- We hypothesized that the complete dominance of positive pathway associations in the previous plot might be due to hypermutated samples.  
-- As expected, with the hypermutated samples removed we see fewer significant results and some negative association estimates (none significant).
 
 
 
@@ -1837,7 +1777,7 @@ dft_gene_assoc_spop_brca2 <- test_fisher_co_occur(
 dft_gene_assoc_spop_brca2 %>% glimpse
 ```
 
-### *SPOP/BRCA2
+### SPOP/BRCA2
 
 Irbaz asked about a specific co-occurrence which had been seen in the literature:  SPOP and BRCA2.  To do this properly we would want to expand our association framework to include genes at this level of occurence (BRCA2 is just outside the "top 10" arbitrary cutoff).
 
