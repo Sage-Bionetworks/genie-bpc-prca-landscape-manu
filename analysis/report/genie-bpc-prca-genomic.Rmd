@@ -1161,22 +1161,6 @@ gg_cut_points <- ggplot(
 ```
 
 
-### *R2.4.7 New hypermutated threshold?
-
-A priori we discussed using a TMB threshold of 10 mut/Mb to identify hypermutated individuals.  In the above work we established that we can possibly alleviate some of the bias between tumor-only and tumor-normal samples if we only consider oncogenic alterations.  If we wanted to use this, we would need to establish a new threshold which uses TOMB in place of TMB.  Two simple approaches which seem reasonable to me:
-
-- *Percentile exclusion*. Using tumor-normal samples, find the proportion of samples (X) which are over a TMB of 10.  Declare the top X% of samples in the whole cohort as hypermutated by TOMB.
-  - Result:  Excluding just over 6% of samples, which is the proportion of tumor-normal samples with a raw TMB over 10, would eliminate those with a **TOMB >= 4.7**.
-- *Find a classifier cut point for TOMB*.  Using tumor-normal samples, find a metric-optimal cutpoint for TOMB which classifies samples best into hypermutated/not for TMB.  Then apply this to all samples on TOMB.
-  - Result:  **TOMB >= 5.9** is a good cut point using most metrics (F-measure, accuracy, and Cohen's kappa all agree).  Even weight on sensitivity and specificity suggested TOMB >= 4.7.  Multiple metrics were assessed due to my low expertise on this topic.
-
-Here's a plot that shows TMB vs TOMB and those two stated cut points:
-
-```{r, fig.height = 4, include = T}
-gg_cut_points
-```
-
-**Follow-up:** What does our group think about using a hypermutated threshold based on an oncogenic calculation of TMB?  Consequences are currently minor since only one analysis uses a binary indication of hypermutation, and the cost of explaining this concept may be fairly high.
 
 
 
