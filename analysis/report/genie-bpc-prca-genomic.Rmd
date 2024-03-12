@@ -1089,7 +1089,7 @@ gg_tmb_dist_panel_onco <- plot_boxplot_by_panel(
   x_var = 'tmb_Mb_onco',
   plot_title = "Tumor mutation burden sample distribution",
   plot_subtitle = "only including oncogenic mutations",
-  x_lab = "TOMB (oncogenic mutations per megabase)"
+  x_lab = "TMB"
 )
 
 gg_tmb_ecdf_panel_onco <- plot_ecdf_by_panel(
@@ -1097,14 +1097,14 @@ gg_tmb_ecdf_panel_onco <- plot_ecdf_by_panel(
   x_var = 'tmb_Mb_onco',
   plot_title = "Tumor mutation burden sample distribution",
   plot_subtitle = "only including oncogenic mutations",
-  x_lab = "TOMB (oncogenic mutations per megabase)"
+  x_lab = "TMB"
 )
 ```
 
 
 ### R2.4.6 OncoKB effect on TMB
 
-We've identified a sign from TMB which indicates a possible problem in our data: tumor-normal samples may have a systematically lower (and more typical) TMB than tumor-only samples.  We now investigate whether this persists when we limit our pool of alterations to only oncogenic ones.  I will call TMB calculated using only oncogenic alterations "tumor oncogenic mutation burden" (TOMB), just to establish a short hand for this report (not committed to using that term beyond).
+We've identified, using TMB, a sign which indicates a possible problem in our data: tumor-normal samples may have a systematically lower (and more typical) TMB than tumor-only samples.  We now investigate whether this persists when we limit our pool of alterations to **only oncogenic** mutations.  
 
 Here are the previous plots, using only oncogenic alterations in calculating TMB:
 
@@ -1126,39 +1126,6 @@ gg_tmb_ecdf_panel_onco
 
 
 
-
-
-```{r}
-dft_tmb_tomb <- dft_cpt %>%
-  select(record_id, cpt_seq_assay_id, contains('tmb')) %>%
-  left_join(
-    ., 
-    distinct(select(dft_gp_all, cpt_seq_assay_id, calling_strategy)),
-    by = "cpt_seq_assay_id"
-  )
-
-gg_cut_points <- ggplot(
-  dft_tmb_tomb,
-  aes(x = tmb_Mb_onco + 0.1, y = tmb_Mb + 0.1, color = calling_strategy)
-) + 
-  geom_abline(intercept = 0, slope = 1, linetype = "12") + 
-  geom_jitter(alpha = 0.5, width = 0.1, height = 0.1) +
-  scale_x_continuous(trans = 'log10') +
-  scale_y_continuous(trans = 'log10') + 
-  geom_vline(xintercept = 4.7) + 
-  geom_vline(xintercept = 5.9) + 
-  theme_bw() +
-  labs(
-    x = "TOMB (oncogenic)", y = "TMB (raw)",
-    title = "TMB, TOMB and proposed cut points",
-    subtitle = "Right of the black lines would be 'hypermutated'"
-  ) +
-  scale_color_vibrant() + 
-  theme(
-    plot.title.position = 'plot'
-  )
-       
-```
 
 
 
