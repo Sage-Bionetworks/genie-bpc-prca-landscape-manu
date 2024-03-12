@@ -1,0 +1,74 @@
+---
+title: "BPC Prostate - Genomic descriptives"
+author: "Alex Paynter"
+date: "`r Sys.Date()`"
+output:
+  quarto::quarto_html:
+    toc: true
+    toc_float: true
+    theme:
+      name: paper
+editor_options:
+  quarto:
+    chunk_output_type: console
+    defaults:
+      chunk:
+        echo: false
+        include: false
+        warning: false
+        message: false
+        fig.width: 7
+        fig.height: 5
+---
+
+```{r}
+library(purrr); library(here); library(fs)
+purrr::walk(.x = fs::dir_ls(here('R')), .f = source) # also loads lots of packages.
+```
+
+```{r, set_gtsummary_theme}
+theme_gtsummary_compact()
+theme_gtsummary_language("en", big.mark = "") # for now.
+```
+
+
+
+```{r}
+read_wrap_clin <- function(p) {
+  read_rds(file = here("data", 'clin', p))
+}
+
+dft_pt <- read_wrap_clin("dft_pt.rds")
+dft_ca_ind <- read_wrap_clin("dft_ca_ind.rds")
+# we're taking the augmented version, which has TMB columns added.  The existing info is the same.
+dft_cpt <- read_wrap_clin("dft_cpt_aug.rds")
+```
+
+
+## Introduction
+
+This document contains analyses related to survival for the GENIE BPC Prostate Cancer Landscape Manuscript group.  Drafting of started in Feb 2024, with brainstorming on analyses of interest in 2023 as well.
+
+Defining a few survival terms (narrowly) to make sure we're all on the same page:
+
+- **Index event** or **"Time 0"** - The event we're interested in measuring time from.  Common choices are diagnosis, metastasis, or start of a drug.
+- **Event of interest** - Even that we're measuring time to, for example death or progression.
+- **Censoring** - When a patient is lost before they have the event of interest occur.  For example, the followup period ended before they died, or they left for another country before a progression occurred.
+- **Delayed entry** - A key requirement for recruitment into the BPC cohorts is having a next generation sequencing (NGS, equivalent to "cancer panel test") test in a calendar window.  After recruitment, medical records are retrospectively assessed.  This means that if we're indexing from an event that could occur before NGS (like diagnosis or metastasis), participants can enter the cohort after the index event happens.  This occurrence is known as delayed (cohort) entry.  The reason this is important is that some people may die before they enter the cohort, so delayed entry will introduce selection bias into our recruitment toward those that live longer, specifically long enough to enter the cohort.
+- **Left truncation** - For our purposes this will be equivalent to saying delayed entry.  The sample is "truncated" because we don't observe those who died before entering the cohort, even if they were diagnosed with the index event.
+  - Truncation occurs with patients who we never observe (never entered the cohort).  Censoring happens with patients who entered the cohort, but that we didn't happen to observe the event of interest for.
+  - **Independent left truncation** - The distribution for truncation and the time to event are independent.  In our context would mean, for example, that the time it takes someone to get sequenced is not related to how long they live.  This is obviously not always true, and this has been pointed out with GENIE data specifically: https://jamanetwork.com/journals/jamanetworkopen/fullarticle/2766816.
+    - Methods that "adjust for left truncation" usually do so assuming independent left truncation, including most of the plots below.
+
+## Basics
+
+### Cohort survival
+
+```{r}
+
+```
+
+
+
+
+

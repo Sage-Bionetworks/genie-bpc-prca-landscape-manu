@@ -1656,7 +1656,7 @@ gg_pathway_assoc
 
 **Removed**  We don't have a suitable definition of hypermutated due to the presence of tumor-only (no matched normal) samples.
 
-An exploration into developing a threshold using oncogenic alterations only in the calculation of TMB (which makes tumor-normal and tumor-only samples more similar) was presented in Feb 2024.  This has been removed for two good reasons: (1) too complicated and (2) not very useful, because we rely on a definition of hypermutated in so few analyses currently.
+An exploration into developing a threshold using oncogenic alterations only in the calculation of TMB (which makes tumor-normal and tumor-only samples more similar) was presented in Feb 2024.  This has been removed for two good reasons: (1) too tangential and (2) not very useful, because we rely on a definition of hypermutated in so few analyses currently.
 
 
 

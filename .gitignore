@@ -87,3 +87,5 @@ renv/staging/
 # folders to ignore
 data
 data-raw
+analysis/report/genie-bpc-prca-survival_files/
+
