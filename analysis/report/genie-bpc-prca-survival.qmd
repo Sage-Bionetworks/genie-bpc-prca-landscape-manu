@@ -31,8 +31,6 @@ theme_gtsummary_compact()
 theme_gtsummary_language("en", big.mark = "") # for now.
 ```
 
-
-
 ```{r}
 read_wrap_clin <- function(p) {
   read_rds(file = here("data", 'clin', p))
@@ -57,15 +55,85 @@ Defining a few survival terms (narrowly) to make sure we're all on the same page
 - **Delayed entry** - A key requirement for recruitment into the BPC cohorts is having a next generation sequencing (NGS, equivalent to "cancer panel test") test in a calendar window.  After recruitment, medical records are retrospectively assessed.  This means that if we're indexing from an event that could occur before NGS (like diagnosis or metastasis), participants can enter the cohort after the index event happens.  This occurrence is known as delayed (cohort) entry.  The reason this is important is that some people may die before they enter the cohort, so delayed entry will introduce selection bias into our recruitment toward those that live longer, specifically long enough to enter the cohort.
 - **Left truncation** - For our purposes this will be equivalent to saying delayed entry.  The sample is "truncated" because we don't observe those who died before entering the cohort, even if they were diagnosed with the index event.
   - Truncation occurs with patients who we never observe (never entered the cohort).  Censoring happens with patients who entered the cohort, but that we didn't happen to observe the event of interest for.
+  - cBioPortal does not currently adjust for left truncation at all, so don't be surprised if the curve there differs dramatically from one here.
   - **Independent left truncation** - The distribution for truncation and the time to event are independent.  In our context would mean, for example, that the time it takes someone to get sequenced is not related to how long they live.  This is obviously not always true, and this has been pointed out with GENIE data specifically: https://jamanetwork.com/journals/jamanetworkopen/fullarticle/2766816.
     - Methods that "adjust for left truncation" usually do so assuming independent left truncation, including most of the plots below.
 
 ## Basics
 
-### Cohort survival
+```{r}
+
+dft_first_cpt <- get_first_cpt(
+  ca_ind_dat = dft_ca_ind,
+  cpt_dat = dft_cpt
+)
+
+dft_surv_dx <- dft_ca_ind %>%
+  left_join(., dft_first_cpt, by = c("record_id", "ca_seq")) %>%
+  select(
+    record_id, ca_seq, stage_dx_iv, dx_cpt_rep_yrs,
+    os_dx_status, tt_os_dx_yrs
+  ) 
+
+dft_surv_dx %>% remove_trunc_gte_event
+
+remove_trunc_gte_event <- function(
+    dat,
+    trunc_var = "dx_cpt_rep_yrs",
+    event_var = "tt_os_dx_yrs",
+    message_rows_removed = T
+) {
+  rtn <- dat %>%
+    filter(
+      .data[[trunc_var]] < .data[[event_var]]
+    )
+  
+  if (message_rows_removed) {
+    nrow_removed <- nrow(dat) - nrow(rtn)
+    cli::cli_alert_info("{nrow_removed} rows removed due to {trunc_var} >= {event_var}.")
+  }
+  return(rtn)
+    
+}
+    
+
+surv_obj_os <- with(
+  dft_surv_dx,
+  Surv(
+    time = dx_cpt_rep_yrs,
+    time2 = tt_os_dx_yrs,
+    event = os_dx_status
+  )
+)
+
+```
+
+
+### R3.1.1 Survival from diagnosis
+
+
 
 ```{r}
 
+```
+
+
+
+## Appendix
+
+### Post-death sequencing
+
+We assume that participants enter the GENIE cohort when they have an NGS test **reported**, and use the variable `dx_cpt_rep_yrs` as the marker of cohort entry.  Because it is possible for patients to die before their report is returned, some patients are excluded from survival analyses by this choice.  In this cohort the numbers excluded are not trivial.  
+
+For example, in an analysis of overall survival adjusting for delayed entry in the whole cohort (n=1116), 30 subjects are excluded for this reason.  These participants have much shorter than the included people, so this probably biases our survival estimates high.
+
+Comments on possible solutions:
+
+- Aside from report date, there are other times measured.  These include `cpt_order_int`, which is unfortunately not complete (especially for UHN), and `dx_path_proc_cpt_yrs`, which is complete but not closely related to cohort entry time.
+
+
+```{r}
+dft_surv_dx %>% remove_trunc_gte_event
 ```
 
 
