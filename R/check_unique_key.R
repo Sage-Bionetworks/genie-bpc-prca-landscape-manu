@@ -11,7 +11,7 @@ check_unique_key <- function(
   
   if (top_count$n > 1) {
     print(top_count)
-    cli::cli_abort("Duplicate keys ^.  Top hit printed above")
+    cli::cli_alert_danger("Duplicate keys ^.  Top hit printed above")
     return(F)
   } else {
     return(T)

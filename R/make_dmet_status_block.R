@@ -17,9 +17,11 @@ make_dmet_status_block <- function(ca_ind_dat) {
   
   dmet_at_onset <- ci_sub %>%
     filter(stage_dx_iv %in% "Stage IV" & ca_dmets_yn %in% "Yes") %>%
-    mutate(dmet_status = dmet_stat_levs[2],
-           dx_block_start = 0,
-           dx_block_end = tt_os_dx_yrs) 
+    mutate(
+      dmet_status = dmet_stat_levs[2],
+      dx_block_start = 0,
+      dx_block_end = tt_os_dx_yrs
+    ) 
   
   dmet_in_fu <- ci_sub %>%
     # A note on this filtering: There is at least one person who was diagnosed

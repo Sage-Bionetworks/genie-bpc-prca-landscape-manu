@@ -71,69 +71,91 @@ dft_ca_ind %>%
   tabyl(diff)
 
 # Checking that my classification is collectively exhaustive:
-lev_met <- 
-dft_ca_ind %>%
+lev_met_code <- c(
+  'never_met',
+  'met_later',
+  'met_at_dx',
+  'tricky_ones'
+)
+
+dft_met_class <- dft_ca_ind %>%
   mutate(
     met_coding_class = case_when(
-      !(stage_dx_iv %in% "Stage IV") & dmets_stage_i_iii %in% 0 ~ "never_met",
-      !(stage_dx_iv %in% "Stage IV") & dmets_stage_i_iii %in% 1 ~ "met_later",
-      stage_dx_iv %in% "Stage IV" & ca_dmets_yn %in% "Yes" ~ "met_at_dx",
-      stage_dx_iv %in% "Stage IV" & !(ca_dmets_yn %in% "Yes") ~ "the_tricky_ones",
+      !(stage_dx_iv %in% "Stage IV") & dmets_stage_i_iii %in% 0 ~ lev_met_code[1],
+      !(stage_dx_iv %in% "Stage IV") & dmets_stage_i_iii %in% 1 ~ lev_met_code[2],
+      stage_dx_iv %in% "Stage IV" & ca_dmets_yn %in% "Yes" ~ lev_met_code[3],
+      stage_dx_iv %in% "Stage IV" & !(ca_dmets_yn %in% "Yes") ~ lev_met_code[4],
       T ~ NA_character_
     )
-  )
-      
+  ) %>%
+  select(
+    record_id, ca_seq, 
+    stage_dx_iv, ca_dmets_yn, dmets_stage_i_iii, 
+    met_coding_class
+  ) %>%
+  mutate(met_coding_class = factor(met_coding_class, levels = lev_met_code))
+
+tabyl(dft_met_class, met_coding_class)
+
+dft_met_class %>% filter(is.na(met_coding_class)) # for some reason has no info - OK fine.
+
+dft_ca_ind %>%
+  filter(record_id %in% "GENIE-DFCI-010669") %>%
+  select(matches("dx_to_dmet.*_yrs")) %>%
+  glimpse
       
 
-met_site_vars <- dft_ca_ind %>% 
-  select(record_id, ca_seq, matches("dx_to_dmets.*_yrs")) %>%
-  filter(!is.na(dx_to_dmets_yrs)) 
-
-met_site_vars %>% 
+# Attempt to reconstruct dx_to_dmets_yrs using the site variables:
+dft_reconstruct <- dft_ca_ind %>%
+  filter(!(stage_dx_iv %in% "Stage IV") & dmets_stage_i_iii %in% 1) %>%
+  select(record_id, ca_seq, matches("dx_to_dmet.*_yrs")) %>%
   pivot_longer(
     cols = -c(record_id, ca_seq)
   ) %>%
+  filter(!(name %in% 'dx_to_dmets_yrs')) %>%
   group_by(record_id, ca_seq) %>%
-  filter(!is.na(value)) %>%
-  summarize(num_vars_complete = n(), .groups = "drop") %>%
-  arrange(num_vars_complete)
+  arrange(value) %>%
+  slice(1) %>% 
+  ungroup(.) %>%
+  rename(
+    var_for_min = name,
+    site_min_yrs = value
+  )
 
-dft_ca_ind %>%
-  filter(record_id %in% "GENIE-DFCI-010669", ca_seq %in% 0) %>% glimpse
+dft_reconstruct <- dft_ca_ind %>%
+  filter(!(stage_dx_iv %in% "Stage IV") & dmets_stage_i_iii %in% 1) %>%
+  select(record_id, ca_seq, dx_to_dmets_yrs) %>%
+  full_join(
+    .,
+    dft_reconstruct,
+    by = c("record_id", "ca_seq")
+  )
+
+# Cases where the reconstruction fails:
+dft_reconstruct %>%
+  filter(xor(is.na(dx_to_dmets_yrs), is.na(site_min_yrs))) %>% glimpse
+dft_reconstruct %>%
+  filter(abs(dx_to_dmets_yrs - site_min_yrs) > 0.5/365.25) %>% glimpse
+# So actually 3.
 
 
-dft_img %>% tabyl(image_ca) # k good.
 
-dft_img %>% select(matches("^image_casite")) %>%
+dft_stage_iv_recon <- dft_ca_ind %>%
+  filter(stage_dx_iv %in% "Stage IV" & !(ca_dmets_yn %in% "Yes")) %>%
+  select(record_id, ca_seq, matches("dx_to_dmet.*_yrs")) %>%
   pivot_longer(
-    cols = everything()
+    cols = -c(record_id, ca_seq)
   ) %>%
-  filter(!is.na(value)) %>%
-  count(value, sort = T)
-
-
-dft_surv_met <- left_join(dft_surv_met,
-                          dft_met_timing,
-                          by = c('record_id', 'ca_seq'))
-
-dft_surv_met %>% 
-  remove_trunc_gte_event(
-    trunc_var = 'dx_cpt_rep_yrs',
-    event_var = 'tt_os_adv_yrs'
+  filter(!(name %in% 'dx_to_dmets_yrs')) %>%
+  group_by(record_id, ca_seq) %>%
+  arrange(value) %>%
+  slice(1) %>% 
+  ungroup(.) %>%
+  rename(
+    var_for_min = name,
+    site_min_yrs = value
   )
 
-surv_obj_os_dx <- with(
-  dft_surv_dx,
-  Surv(
-    time = dx_cpt_rep_yrs,
-    time2 = tt_os_dx_yrs,
-    event = os_dx_status
-  )
-)
+  
 
-gg_os_dx_stage <- plot_one_survfit(
-  dat = dft_surv_dx,
-  surv_form = surv_obj_os ~ stage_dx_iv,
-  plot_title = "OS from diagnosis",
-  plot_subtitle = "Adjusted for (independent) delayed entry"
-)
+
