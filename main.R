@@ -16,7 +16,7 @@ source(here('analysis', 'script', 'save_sunbursts.R'))
 fs::dir_create(here("output"))
 rmarkdown::render(
   input = here('analysis', 'report', 'genie-bpc-prca-clinical.Rmd'),
-  output_file = 'genie-bpc-prca-clinical.html',
+  output_file = '01-genie-bpc-prostate-clinical.html',
   output_dir = here('output')
 )
 
@@ -39,8 +39,40 @@ source(here('analysis', 'script', 'add_tmb_to_cpt.R'))
 #  dplyr calls.  Possibly need to reload R after running it.
 rmarkdown::render(
   input = here('analysis', 'report', 'genie-bpc-prca-genomic.Rmd'),
-  output_file = 'genie-bpc-prca-genomic.html',
+  output_file = '02-genie-bpc-prostate-genomic.html',
   output_dir = here('output')
+)
+
+
+############
+# Survival #
+############
+quarto::quarto_render(
+  input = here('analysis', 'report', 'genie-bpc-prca-survival.qmd'),
+  output_format = 'html',
+  output_file = '03-genie-bpc-prostate-survival.html',
+)
+fs::file_move(
+  path = here('03-genie-bpc-prostate-survival.html'),
+  new_path = here('output', '03-genie-bpc-prostate-survival.html')
+)
+
+
+
+#########
+# Other #
+#########
+# Current version of quarto stunningly does not have output_dir, so we render and move.
+# A pre-release version has this, so this can be fixed soon.
+# quarto::quarto_render(
+#   input = here('analysis', 'report', 'genie-bpc-prca-met-class.qmd'),
+#   output_format = 'html',
+# )
+# Nope, even that doesn't work for self contained.  What a mess.
+# Render it and move it.
+fs::file_move(
+  path = here('analysis', 'report', 'genie-bpc-prca-met-class.html'),
+  new_path = here('output', '99-genie-bpc-prostate-met-class.html')
 )
 
 

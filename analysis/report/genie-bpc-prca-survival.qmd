@@ -107,7 +107,6 @@ Notes:
 
 
 
-
 ```{r}
 
 dft_surv_met <- dft_ca_ind %>%
@@ -156,6 +155,23 @@ gg_os_dx_stage <- plot_one_survfit(
 
 
 
+
+
+## Specific questions
+
+### R3.2.1 HRD pathway
+
+In our Feb 2024 meeting the group expressed an interest in looking at overall survival comparing those with an oncogenic homologous repair deficiency (HRD) mutation, compared with those who do not.  We also discussed that this is complicated by the known lower rates of BRCA2 reported at sites with normal-matched genomic samples, compared with those doing tumor-only sequencing.
+
+Restrictions on this analysis:
+
+- Restrict patient cohort to those with a distant metastasis diagnosed, and who had at least one regimen after this diagnosis.
+- 
+
+
+- Only include genomic tests where the specimen was taken before the first regimen in the metastatic state.
+- 
+- Only
 
 
 
