@@ -11,15 +11,13 @@ output:
 editor_options:
   quarto:
     chunk_output_type: console
-    defaults:
-      chunk:
-        echo: false
-        include: false
-        warning: false
-        message: false
-        fig.width: 7
-        fig.height: 5
-  chunk_output_type: console
+execute:
+  echo: false
+  include: false
+  warning: false
+  message: false
+  fig.width: 7
+  fig.height: 5
 ---
 
 ```{r}
@@ -48,17 +46,7 @@ dft_cpt <- read_wrap_clin("dft_cpt_aug.rds")
 
 This document contains analyses related to survival for the GENIE BPC Prostate Cancer Landscape Manuscript group.  Drafting of started in Feb 2024, with brainstorming on analyses of interest in 2023 as well.
 
-Defining a few survival terms (narrowly) to make sure we're all on the same page:
-
-- **Index event** or **"Time 0"** - The event we're interested in measuring time from.  Common choices are diagnosis, metastasis, or start of a drug.
-- **Event of interest** - Even that we're measuring time to, for example death or progression.
-- **Censoring** - When a patient is lost before they have the event of interest occur.  For example, the followup period ended before they died, or they left for another country before a progression occurred.
-- **Delayed entry** - A key requirement for recruitment into the BPC cohorts is having a next generation sequencing (NGS, equivalent to "cancer panel test") test in a calendar window.  After recruitment, medical records are retrospectively assessed.  This means that if we're indexing from an event that could occur before NGS (like diagnosis or metastasis), participants can enter the cohort after the index event happens.  This occurrence is known as delayed (cohort) entry.  The reason this is important is that some people may die before they enter the cohort, so delayed entry will introduce selection bias into our recruitment toward those that live longer, specifically long enough to enter the cohort.
-- **Left truncation** - For our purposes this will be equivalent to saying delayed entry.  The sample is "truncated" because we don't observe those who died before entering the cohort, even if they were diagnosed with the index event.
-  - Truncation occurs with patients who we never observe (never entered the cohort).  Censoring happens with patients who entered the cohort, but that we didn't happen to observe the event of interest for.
-  - cBioPortal does not currently adjust for left truncation at all, so don't be surprised if the curve there differs dramatically from one here.
-  - **Independent left truncation** - The distribution for truncation and the time to event are independent.  In our context would mean, for example, that the time it takes someone to get sequenced is not related to how long they live.  This is obviously not always true, and this has been pointed out with GENIE data specifically: https://jamanetwork.com/journals/jamanetworkopen/fullarticle/2766816.
-    - Methods that "adjust for left truncation" usually do so assuming independent left truncation, including most of the plots below.
+The appendix contains a few survival terms we will need for this work (delayed entry, independent left truncation, etc).
 
 ## Basics
 
@@ -82,7 +70,7 @@ dft_surv_dx %<>%
     event_var = 'tt_os_dx_yrs'
   )
 
-surv_obj_os <- with(
+surv_obj_os_dx <- with(
   dft_surv_dx,
   Surv(
     time = dx_cpt_rep_yrs,
@@ -91,15 +79,12 @@ surv_obj_os <- with(
   )
 )
 
-
-plot_one_survfit(
+gg_os_dx_stage <- plot_one_survfit(
   dat = dft_surv_dx,
   surv_form = surv_obj_os ~ stage_dx_iv,
   plot_title = "OS from diagnosis",
-  plot_subtitle = "Adjusted for (independent) delayed entry",
-  risktable_height = NULL
+  plot_subtitle = "Adjusted for (independent) delayed entry"
 )
-  
 
 
 ```
@@ -107,11 +92,75 @@ plot_one_survfit(
 
 ### R3.1.1 Survival from diagnosis
 
+The following plot shows simple Kaplan-Meier estimates from diagnosis for overall survival.  This is broken into groups for Stage I-III and Stage IV at diagnosis.
+
+```{r}
+#| include: true
+
+gg_os_dx_stage
+```
+
+Notes:
+
+- The counts for At Risk are snapshots in time.  The counts for Censored and Events are cumulative.
+- The at risk set for both groups increases after 0 years due to adjustment for delayed entry.  Participants enter the risk set when they enter the cohort, which can be well after diagnosis.
+
+
 
 
 ```{r}
 
+dft_surv_met <- dft_ca_ind %>%
+  filter(!is.na(os_adv_status)) %>%
+  left_join(., dft_first_cpt, by = c("record_id", "ca_seq")) %>%
+  select(
+    record_id, ca_seq, dx_cpt_rep_yrs,
+    os_adv_status, tt_os_adv_yrs
+  )
+
+dft_met_timing <- make_dmet_status_block(ca_ind_dat = dft_ca_ind) %>% 
+  filter(dmet_status %in% "Distant Metastasis") %>%
+  select(record_id, ca_seq, dx_met_yrs = dx_block_start)
+
+dft_surv_met <- left_join(dft_surv_met,
+                          dft_met_timing,
+                          by = c('record_id', 'ca_seq'))
+
+dft_surv_met %>% 
+  remove_trunc_gte_event(
+    trunc_var = 'dx_cpt_rep_yrs',
+    event_var = 'tt_os_adv_yrs'
+  )
+
+surv_obj_os_dx <- with(
+  dft_surv_dx,
+  Surv(
+    time = dx_cpt_rep_yrs,
+    time2 = tt_os_dx_yrs,
+    event = os_dx_status
+  )
+)
+
+gg_os_dx_stage <- plot_one_survfit(
+  dat = dft_surv_dx,
+  surv_form = surv_obj_os ~ stage_dx_iv,
+  plot_title = "OS from diagnosis",
+  plot_subtitle = "Adjusted for (independent) delayed entry"
+)
+
+
 ```
+
+
+### R3.1.2 Survival from metastasis
+
+
+
+
+
+
+
+
 
 
 
@@ -129,11 +178,18 @@ Comments on other variables that could be used:
 - `cpt_order_int`, the interval to the order for the cancer panel test, is unfortunately not complete (especially for UHN), and `dx_path_proc_cpt_yrs`, which is complete but does not seem relevant to cohort entry time.
 
 
-```{r}
-dft_surv_dx %>% remove_trunc_gte_event
-```
+### Terminology
 
+The following definitions are intentionally narrowed to the scope we will use them in for this work:
 
-
+- **Index event** or **"Time 0"** - The event we're interested in measuring time from.  Common choices are diagnosis, metastasis, or start of a drug.
+- **Event of interest** - Even that we're measuring time to, for example death or progression.
+- **Censoring** - When a patient is lost before they have the event of interest occur.  For example, the followup period ended before they died, or they left for another country before a progression occurred.
+- **Delayed entry** - A key requirement for recruitment into the BPC cohorts is having a next generation sequencing (NGS, equivalent to "cancer panel test") test.  After recruitment, medical records are retrospectively assessed.  This means that if we're indexing from an event that could occur before NGS (like diagnosis or metastasis), participants can enter the cohort after the index event happens.  Having a gap between index time and cohort entry is known as delayed (cohort) entry.  The reason this is important is that some people may die before they enter the cohort, so delayed entry will introduce selection bias into our recruitment toward those that live longer.
+- **Left truncation** - For our purposes this will be equivalent to delayed entry.  The sample is "truncated" because we don't observe those who died before entering the cohort, even if they were diagnosed with the index event.
+  - Truncation occurs with patients who we never observe (never entered the cohort).  This differs from censoring happens with patients who entered the cohort, but that we didn't happen to observe the event of interest for.
+  - cBioPortal does not currently adjust for left truncation at all, so don't be surprised if the curve there differs dramatically from one here.
+  - **Independent left truncation** - The distribution for truncation and the time to event are independent.  In our context would mean, for example, that the time it takes someone to get sequenced is not related to how long they live.  This is obviously not always true, and this has been pointed out with GENIE data specifically: https://jamanetwork.com/journals/jamanetworkopen/fullarticle/2766816.
+    - Methods that "adjust for left truncation" usually do so assuming independent left truncation, including most of the plots below.
 
 

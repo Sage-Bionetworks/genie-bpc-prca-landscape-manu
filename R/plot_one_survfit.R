@@ -17,7 +17,7 @@ plot_one_survfit <- function(
         "cum.event"
       ),
       hjust = 0,
-      risktable_height = risktable_prop
+      risktable_height = risktable_prop,
       size = 3.5  # default
     ) +
     scale_y_continuous(
