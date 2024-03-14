@@ -6,7 +6,8 @@ plot_one_survfit <- function(
     plot_title = NULL,
     plot_subtitle = NULL,
     x_title = "Years",
-    risktable_prop = NULL
+    risktable_prop = NULL,
+    x_exp = 0.15
 ) {
   gg <- survfit2(surv_form, data = dat) %>%
     ggsurvfit() +
@@ -27,7 +28,7 @@ plot_one_survfit <- function(
     ) +
     scale_x_continuous(
       name = x_title,
-      expand = expansion(add = 0, mult = c(0, 0.1)), # needed to prevent clipping
+      expand = expansion(add = 0, mult = c(0, x_exp)), # needed to prevent clipping
       breaks = seq(0, 100, by = 2.5)
     ) +
     scale_color_manual(
@@ -35,7 +36,8 @@ plot_one_survfit <- function(
     ) + 
     coord_cartesian(
       xlim = c(0, NA),
-      ylim = c(0,1.01)
+      ylim = c(0,1.01),
+      expand = T
     ) +
     labs(
       title = plot_title,
