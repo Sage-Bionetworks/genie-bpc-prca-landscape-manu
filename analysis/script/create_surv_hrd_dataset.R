@@ -9,8 +9,8 @@ library(purrr); library(here); library(fs)
 purrr::walk(.x = fs::dir_ls(here('R')), .f = source) # also load
 dft_ca_ind <- readr::read_rds(here('data', 'clin', "dft_ca_ind.rds"))
 dft_reg <- readr::read_rds(here('data', 'clin', "dft_reg.rds"))
-dft_cpt <- read_wrap_clin("dft_cpt_aug.rds")
-dft_alt <- read_wrap_geno('alterations.rds')
+dft_cpt <- readr::read_rds(here('data', 'clin', "dft_cpt_aug.rds"))
+dft_alt <- readr::read_rds(here('data', 'genomic','alterations.rds'))
 
 
 
@@ -89,7 +89,7 @@ dft_onco_hrd %<>%
 
 
 readr::write_rds(
-  dft_onco_hrd
+  dft_onco_hrd,
   here('data', 'outcome', 'surv_met_hrd', 'alt_onco_hrd.rds')
 )
 
@@ -102,8 +102,6 @@ dft_onco_hrd_flags <- dft_onco_hrd %>%
   summarize(
     hrd_before_pm_reg = sum(dx_path_proc_cpt_yrs < dx_first_post_met_reg_yrs, na.rm = T) >= 1,
     hrd_before_entry = sum(dx_path_proc_cpt_yrs < dx_entry, na.rm = T) >= 1,
-    # just want to keep this:
-    dx_first_cpt_rep_yrs = first(dx_first_cpt_rep_yrs),
     .groups = "drop"
   )
 
@@ -127,6 +125,26 @@ dft_met_hrd_surv %<>%
       hrd_before_entry = 0
     )
   ) 
+
+# Still need the cohort entry time for survival to work out:
+dft_met_hrd_surv %<>%
+  left_join(
+    ., 
+    dft_first_cpt,
+    by = c('record_id', 'ca_seq')
+  ) %>%
+  # I just cant stand these names...
+  rename(
+    os_first_met_reg_status = os_g_status,
+    tt_os_first_met_reg_yrs = tt_os_g_yrs
+  ) %>%
+  mutate(
+    fmr_fcpt_yrs = dx_first_cpt_rep_yrs - dx_reg_start_int_yrs
+  )
+    
+
+    
+    
 
 
 readr::write_rds(

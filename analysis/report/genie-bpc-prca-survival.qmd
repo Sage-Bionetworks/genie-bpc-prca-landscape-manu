@@ -81,7 +81,7 @@ surv_obj_os_dx <- with(
 
 gg_os_dx_stage <- plot_one_survfit(
   dat = dft_surv_dx,
-  surv_form = surv_obj_os ~ stage_dx_iv,
+  surv_form = surv_obj_os_dx ~ stage_dx_iv,
   plot_title = "OS from diagnosis",
   plot_subtitle = "Adjusted for (independent) delayed entry"
 )
@@ -108,44 +108,44 @@ Notes:
 
 
 ```{r}
-
-dft_surv_met <- dft_ca_ind %>%
-  filter(!is.na(os_adv_status)) %>%
-  left_join(., dft_first_cpt, by = c("record_id", "ca_seq")) %>%
-  select(
-    record_id, ca_seq, dx_cpt_rep_yrs,
-    os_adv_status, tt_os_adv_yrs
-  )
-
-dft_met_timing <- make_dmet_status_block(ca_ind_dat = dft_ca_ind) %>% 
-  filter(dmet_status %in% "Distant Metastasis") %>%
-  select(record_id, ca_seq, dx_met_yrs = dx_block_start)
-
-dft_surv_met <- left_join(dft_surv_met,
-                          dft_met_timing,
-                          by = c('record_id', 'ca_seq'))
-
-dft_surv_met %>% 
-  remove_trunc_gte_event(
-    trunc_var = 'dx_cpt_rep_yrs',
-    event_var = 'tt_os_adv_yrs'
-  )
-
-surv_obj_os_dx <- with(
-  dft_surv_dx,
-  Surv(
-    time = dx_cpt_rep_yrs,
-    time2 = tt_os_dx_yrs,
-    event = os_dx_status
-  )
-)
-
-gg_os_dx_stage <- plot_one_survfit(
-  dat = dft_surv_dx,
-  surv_form = surv_obj_os ~ stage_dx_iv,
-  plot_title = "OS from diagnosis",
-  plot_subtitle = "Adjusted for (independent) delayed entry"
-)
+# 
+# dft_surv_met <- dft_ca_ind %>%
+#   filter(!is.na(os_adv_status)) %>%
+#   left_join(., dft_first_cpt, by = c("record_id", "ca_seq")) %>%
+#   select(
+#     record_id, ca_seq, dx_cpt_rep_yrs,
+#     os_adv_status, tt_os_adv_yrs
+#   )
+# 
+# dft_met_timing <- make_dmet_status_block(ca_ind_dat = dft_ca_ind) %>% 
+#   filter(dmet_status %in% "Distant Metastasis") %>%
+#   select(record_id, ca_seq, dx_met_yrs = dx_block_start)
+# 
+# dft_surv_met <- left_join(dft_surv_met,
+#                           dft_met_timing,
+#                           by = c('record_id', 'ca_seq'))
+# 
+# dft_surv_met %>% 
+#   remove_trunc_gte_event(
+#     trunc_var = 'dx_cpt_rep_yrs',
+#     event_var = 'tt_os_adv_yrs'
+#   )
+# 
+# surv_obj_os_dx <- with(
+#   dft_surv_dx,
+#   Surv(
+#     time = dx_cpt_rep_yrs,
+#     time2 = tt_os_dx_yrs,
+#     event = os_dx_status
+#   )
+# )
+# 
+# gg_os_dx_stage <- plot_one_survfit(
+#   dat = dft_surv_dx,
+#   surv_form = surv_obj_os ~ stage_dx_iv,
+#   plot_title = "OS from diagnosis",
+#   plot_subtitle = "Adjusted for (independent) delayed entry"
+# )
 
 
 ```
@@ -159,9 +159,55 @@ gg_os_dx_stage <- plot_one_survfit(
 
 ## Specific questions
 
+
+
+
+```{r}
+dft_met_hrd_surv <- readr::read_rds(
+  here('data', 'outcome', 'surv_met_hrd', 'met_hrd_surv.rds')
+)
+
+dft_met_hrd_surv %<>% 
+  remove_trunc_gte_event(
+    trunc_var = 'fmr_fcpt_yrs',
+    event_var = 'tt_os_first_met_reg_yrs'
+  )
+
+surv_obj_os_fmr <- with(
+  dft_met_hrd_surv,
+  Surv(
+    time = fmr_fcpt_yrs,
+    time2 = tt_os_first_met_reg_yrs,
+    event = os_first_met_reg_status
+  )
+)
+
+gg_os_fmr_hrd <- plot_one_survfit(
+  dat = dft_met_hrd_surv,
+  surv_form = surv_obj_os_fmr ~ hrd_before_entry,
+  plot_title = "OS from first metastatic regimen",
+  plot_subtitle = "Adjusted for (independent) delayed entry"
+)
+
+gg_os_fmr_hrd
+  
+```
+
+
+
+
 ### R3.2.1 HRD pathway
 
 In our Feb 2024 meeting the group expressed an interest in looking at overall survival comparing those with an oncogenic homologous repair deficiency (HRD) mutation, compared with those who do not.  We also discussed that this is complicated by the known lower rates of BRCA2 reported at sites with normal-matched genomic samples, compared with those doing tumor-only sequencing.
+
+**Some more writing here...**
+
+```{r}
+#| include: true
+gg_os_fmr_hrd
+```
+
+
 
 Restrictions on this analysis:
 
