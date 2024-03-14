@@ -27,7 +27,7 @@ plot_one_survfit <- function(
     ) +
     scale_x_continuous(
       name = x_title,
-      expand = c(0,0),
+      expand = expansion(add = 0, mult = c(0, 0.05)), # needed to prevent clipping
       breaks = seq(0, 100, by = 2.5)
     ) +
     scale_color_manual(

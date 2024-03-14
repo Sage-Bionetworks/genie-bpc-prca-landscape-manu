@@ -1,7 +1,7 @@
 # Create analysis dataset for a specific case identified by our physicians:
 # Oncogenic HRD mutation or not is the main predictor (HRD = homologous repair deficiency)
 # OS from first systemic therapy after metastasis is the main outcome.
-# Drug groups: ABT + abi/enza and ABT + docetaxel  (adjustments?  Interactions?  Watch recording.)
+# Drug groups: ABT + abi/enza and ABT + docetaxel  
 # With and without risk set adjustment
 
 
@@ -15,9 +15,7 @@ dft_alt <- readr::read_rds(here('data', 'genomic','alterations.rds'))
 
 
 # Find the people who had a metastasis:
-dft_met_timing <- make_dmet_status_block(ca_ind_dat = dft_ca_ind) %>% 
-  filter(dmet_status %in% "Distant Metastasis") %>%
-  select(record_id, ca_seq, dx_met_yrs = dx_block_start)
+dft_met_timing <- get_dmet_time(dft_ca_ind)
 
 
 
@@ -56,9 +54,10 @@ dft_post_met_reg <- dft_reg %>%
     by = c("record_id", "ca_seq")
   )
 
+
 dft_post_met_reg %<>%
   # half day tolerance on the cutoff:
-  filter(dx_met_yrs >= (dx_reg_start_int_yrs - 0.5 / 365.25))
+  filter(dx_reg_start_int_yrs >= (dx_dmet_yrs - 0.5 / 365.25))
 
 dft_first_post_met_t <- dft_post_met_reg %>%
   group_by(record_id, ca_seq) %>%
@@ -79,8 +78,12 @@ dft_onco_hrd <- left_join(
 
 dft_onco_hrd %<>% 
   mutate(
-    # cohort entry happens when BOTH they have a CPT test and take a post-met drug.
-    dx_entry = pmax(dx_first_cpt_rep_yrs, dx_first_post_met_reg_yrs, na.rm = T)
+    # risk set entry happens when BOTH they have a CPT test and take a post-met drug.
+    dx_entry = case_when(
+      # they have to HAVE both those events, otherwise they did not enter:
+      is.na(dx_first_cpt_rep_yrs) | is.na(dx_first_post_met_reg_yrs) ~ NA_real_,
+      T ~ pmax(dx_first_cpt_rep_yrs, dx_first_post_met_reg_yrs, na.rm = T)
+    )
   )
 
 # dft_onco_hrd %>% 
@@ -105,12 +108,30 @@ dft_onco_hrd_flags <- dft_onco_hrd %>%
     .groups = "drop"
   )
 
+readr::write_rds(
+  dft_onco_hrd_flags,
+  here('data', 'outcome', 'surv_met_hrd', 'alt_onco_hrd_flags.rds')
+)
+
+
+
 
 dft_met_hrd_surv <- dft_post_met_reg %>%
   group_by(record_id, ca_seq) %>%
   arrange(dx_reg_start_int_yrs) %>%
   slice(1) %>%
   ungroup(.)
+
+# temp_missing_cohort <- anti_join(
+#   dft_onco_hrd_flags,
+#   dft_met_hrd_surv,
+#   by = c('record_id', 'ca_seq')
+# )
+
+
+dft_reg %>%
+  filter(record_id %in% 'GENIE-DFCI-000893') %>% 
+  glimpse
 
 dft_met_hrd_surv <- left_join(
   dft_met_hrd_surv,

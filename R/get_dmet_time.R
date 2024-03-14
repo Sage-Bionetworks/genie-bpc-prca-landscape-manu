@@ -61,7 +61,7 @@ get_dmet_time <- function(
                
 }
 
-get_dmet_time(dft_ca_ind, annotate_type = T)
+# get_dmet_time(dft_ca_ind, annotate_type = T)
 
 
 
