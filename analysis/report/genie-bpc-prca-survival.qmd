@@ -47,7 +47,7 @@ dft_cpt <- read_wrap_clin("dft_cpt_aug.rds")
 
 This document contains analyses related to survival for the GENIE BPC Prostate Cancer Landscape Manuscript group.  Drafting of started in Feb 2024, with brainstorming on analyses of interest in 2023 as well.
 
-The appendix narrowly defines a few survival terms.  Looking there may help clarify what I mean in some places, and please ask if not.
+The appendix defines (narrowly) a few survival terms.  Looking there may help clarify what I mean in some places, and please ask if not.
 
 ## Basics
 
@@ -168,7 +168,6 @@ Notes:
 
 
 ## Specific questions
-
 
 
 
@@ -361,12 +360,13 @@ gg_os_fmr_hrd_no_adj
 
 We assume that participants enter the GENIE cohort when they have an NGS test **reported**, and use the variable `dx_cpt_rep_yrs` as the marker of cohort entry.  Because it is possible for patients to die before their report is returned, some patients are excluded from survival analyses by this choice.  In this cohort the numbers excluded are not trivial.  
 
-For example, in an analysis of overall survival adjusting for delayed entry in the whole cohort (n=1116), 30 subjects are excluded for this reason.  These participants have much shorter than the included people, so this probably biases our survival estimates high.
+For example, in an analysis of overall survival adjusting for delayed entry in the whole cohort (n=1116), 30 subjects are excluded for this reason.  These participants have much shorter survival than the included people.
 
 Comments on other variables that could be used:
 
 - Aside from report date, there are other times measured.  
-- `cpt_order_int`, the interval to the order for the cancer panel test, is unfortunately not complete (especially for UHN), and `dx_path_proc_cpt_yrs`, which is complete but does not seem relevant to cohort entry time.
+- `cpt_order_int`, the interval to the order for the cancer panel test, is unfortunately not complete (especially for UHN), and `dx_path_proc_cpt_yrs`, which is complete but does not seem relevant to cohort entry time.  
+- We DO use the pathology procedure date for deriving genomic covariates in some cases.
 
 
 ### Terminology
@@ -382,7 +382,7 @@ The following definitions are intentionally narrowed to the scope we will use th
   - cBioPortal does not currently adjust for left truncation at all, so don't be surprised if the curve there differs dramatically from one here.
   - **Independent left truncation** - The distribution for truncation and the time to event are independent.  In our context would mean, for example, that the time it takes someone to get sequenced is not related to how long they live.  This is obviously not always true, and this has been pointed out with GENIE data specifically: https://jamanetwork.com/journals/jamanetworkopen/fullarticle/2766816.
     - Methods that "adjust for left truncation" usually do so assuming independent left truncation, including most of the plots below.
-- **Risk set** The set of people capable of having the event of interest at a given time.  Specifically they must have entered the cohort.
-  - **Adjusting the risk set** is the same as adjusting for left truncation assuming independent left truncation.
+- **Risk set** The set of participants capable of having the event of interest at a given time.
+  - **Adjusting the risk set** is the same as adjusting for left truncation assuming independent left truncation.  It means we're only counting people who have both entered the cohort (the adjustment) and passed the index time as "at risk".
 
 

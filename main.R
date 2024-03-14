@@ -47,15 +47,16 @@ rmarkdown::render(
 ############
 # Survival #
 ############
-quarto::quarto_render(
-  input = here('analysis', 'report', 'genie-bpc-prca-survival.qmd'),
-  output_format = 'html',
-  output_file = '03-genie-bpc-prostate-survival.html',
-)
+# quarto::quarto_render(
+#   input = here('analysis', 'report', 'genie-bpc-prca-survival.qmd'),
+#   output_format = 'html',
+#   output_file = '03-genie-bpc-prostate-survival.html',
+# )
 fs::file_move(
-  path = here('03-genie-bpc-prostate-survival.html'),
+  path = here('analysis', 'report', 'genie-bpc-prca-survival.html'),
   new_path = here('output', '03-genie-bpc-prostate-survival.html')
 )
+
 
 
 

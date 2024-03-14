@@ -1471,7 +1471,7 @@ n_cell_gene_assoc_sens <- help_cell_table_total(dft_gene_assoc_sens)
 
 
 
-### *R2.6.1b Co-occurence, top 10 genes, sensitivity
+### R2.6.1b Co-occurence, top 10 genes, sensitivity
 
 As a sensitivity analysis, we discussed repeating the previous plot on only subjects who had panels where those top 10 genes were tested.  This reduces the number of samples from `r n_cell_gene_assoc` in each cell of the previous plot to `r n_cell_gene_assoc_sens` here.
 
@@ -1567,7 +1567,7 @@ gg_gene_assoc_compare <- ggplot(
 ```
 
 
-### *R2.6.1c Sensitivity: Direct visual comparison
+### R2.6.1c Sensitivity: Direct visual comparison
 
 I found the previous two plots hard to use, flipping back and forth over big blocks of text.  This is just a visual alternative.  Here we show the change in association for any result which was statistically significant in either R2.6.1a ("Main") or R2.6.1b ("Sensitivity"). 
 
@@ -1657,6 +1657,129 @@ gg_pathway_assoc
 **Removed**  We don't have a suitable definition of hypermutated due to the presence of tumor-only (no matched normal) samples.
 
 An exploration into developing a threshold using oncogenic alterations only in the calculation of TMB (which makes tumor-normal and tumor-only samples more similar) was presented in Feb 2024.  This has been removed for two good reasons: (1) too tangential and (2) not very useful, because we rely on a definition of hypermutated in so few analyses currently.
+
+
+
+
+
+
+
+
+```{r}
+dft_brca2_q <- dft_alt %>% 
+  select(sample_id, hugo, oncogenic, alt_type)
+
+dft_cpt_with_calling <- dft_cpt %>%
+  select(
+    record_id, ca_seq, institution,
+    cpt_genie_sample_id, 
+    cpt_seq_assay_id
+  ) %>%
+  left_join(
+    .,
+    (dft_gp_all %>% 
+       select(cpt_seq_assay_id, calling = calling_strategy) %>%
+       unique(.)),
+    by = 'cpt_seq_assay_id'
+  )
+      
+dft_brca2_q <- left_join(
+    dft_brca2_q,
+    dft_cpt_with_calling,
+    by = c(sample_id = "cpt_genie_sample_id")
+  )
+
+
+# Additionally:
+dft_brca2_q %<>% filter(alt_type %in% "Mutation")
+
+vec_valid_assays <- dft_gp_all %>%
+  filter(hugo %in% "BRCA2" & tested) %>%
+  pull(cpt_seq_assay_id)
+
+dft_cpt_with_calling_brca2 <- dft_cpt_with_calling %>% 
+  filter(cpt_seq_assay_id %in% vec_valid_assays)
+
+brca2_q_help <- function(
+    dat_alt,
+    dat_samp,
+    count_by = "calling"
+) {
+  alt <- dat_alt %>%
+    filter(hugo %in% "BRCA2") %>%
+    count(.data[[count_by]])
+  tot <- dat_samp %>%
+    count(.data[[count_by]], name = "total")
+  
+  full_join(alt, tot, by = count_by) %>%
+    mutate(`n (%)` = n_pct_str(n, total, show_d = T)) %>%
+    select(all_of(count_by), `n (%)`)
+}
+
+dfp_brca2_call <- brca2_q_help(
+  dat_alt = dft_brca2_q, 
+  dat_samp = dft_cpt_with_calling_brca2
+) 
+
+dfp_brca2_inst <- brca2_q_help(
+  dat_alt = dft_brca2_q, 
+  dat_samp = dft_cpt_with_calling_brca2,
+  count_by = "institution"
+)
+
+dfp_brca2_call_onco <- brca2_q_help(
+  dat_alt = filter(dft_brca2_q, 
+                   oncogenic %in% c("Likely Oncogenic", "Oncogenic")),
+  dat_samp = dft_cpt_with_calling_brca2
+) 
+
+dfp_brca2_inst_onco <- brca2_q_help(
+  dat_alt = filter(dft_brca2_q, 
+                   oncogenic %in% c("Likely Oncogenic", "Oncogenic")),
+  dat_samp = dft_cpt_with_calling_brca2,
+  count_by = "institution"
+)
+
+
+
+```
+
+### *R2.7.1 BRCA2, tumor-only vs tumor-normal
+
+At our Feb 2024 meeting, we discussed the HRD pathway as a candidate for survival analyses and the importance of BRCA2, which has important germline variants that are likely reported at different rates between tumor-only and tumor-normal panels.  As a first step, we decided to show the rates of BRCA2 mutations a few ways.
+
+While our survival analyses can use alterations of any type, the analysis below only shows only mutations.  The reason is to retain relevance to our original discussion.
+
+Proportion of samples with a BRCA2 mutation by calling strategy:
+
+```{r, include = T}
+dfp_brca2_call
+```
+
+Proportion of samples with a BRCA2 mutation by calling strategy, **limiting to oncogenic alterations**:
+
+```{r, include = T}
+dfp_brca2_call_onco
+```
+
+Proportion of samples with a BRCA2 mutation by institution:
+
+```{r, include = T}
+dfp_brca2_inst
+```
+
+Proportion of samples with a BRCA2 alteration by institution, **limiting to oncogenic alterations**:
+
+```{r, include = T}
+dfp_brca2_inst_onco
+```
+
+**Notes:**
+
+- It does not appear that he oncogenic filter makes tumor-only and tumor-normal panels similar for BRCA2.  Maybe better but not great.
+- The rates we're reporting here for MSK match what we discussed in the meeting from Ken's cBioPortal numbers (~3.8%). The DFCI ones look lower, and I don't have an explanation for why (the cBioPortal filtering should only decrease our numbers).
+
+
 
 
 
