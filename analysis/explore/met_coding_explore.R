@@ -11,6 +11,12 @@ dft_ca_ind <- read_wrap_clin("dft_ca_ind.rds")
 dft_cpt <- read_wrap_clin("dft_cpt_aug.rds")
 dft_img <- read_wrap_clin("dft_img.rds")
 
+
+dft_first_cpt <- get_first_cpt(
+  ca_ind_dat = dft_ca_ind,
+  cpt_dat = dft_cpt
+)
+
 dft_surv_met <- dft_ca_ind %>%
   filter(!is.na(os_adv_status)) %>%
   left_join(., dft_first_cpt, by = c("record_id", "ca_seq")) %>%
@@ -97,12 +103,21 @@ dft_met_class <- dft_ca_ind %>%
 
 tabyl(dft_met_class, met_coding_class)
 
-dft_met_class %>% filter(is.na(met_coding_class)) # for some reason has no info - OK fine.
+dft_met_class %>% filter(is.na(met_coding_class)) 
+# for some reason has no info - OK fine.
 
-dft_ca_ind %>%
-  filter(record_id %in% "GENIE-DFCI-010669") %>%
-  select(matches("dx_to_dmet.*_yrs")) %>%
-  glimpse
+subject_glimpse_help <- function(record, dat_ca_ind = dft_ca_ind) {
+  dft_ca_ind %>%
+    filter(record_id %in% record) %>%
+    select(
+      record_id, ca_seq, stage_dx_iv, dmets_stage_i_iii, ca_dmets_yn, 
+      matches("dx_to_dmet.*_yrs")
+    ) %>%
+    glimpse
+}
+
+subject_glimpse_help('GENIE-DFCI-010669')
+
       
 
 # Attempt to reconstruct dx_to_dmets_yrs using the site variables:
@@ -137,6 +152,38 @@ dft_reconstruct %>%
 dft_reconstruct %>%
   filter(abs(dx_to_dmets_yrs - site_min_yrs) > 0.5/365.25) %>% glimpse
 # So actually 3.
+
+# Here are the relevant rows from those patients:
+subject_glimpse_help('GENIE-DFCI-010669')
+subject_glimpse_help("GENIE-DFCI-038902")
+subject_glimpse_help("GENIE-MSK-P-0002303")
+
+# Do any of the ICD codes used match up to the Distant (Rare and nos) column?
+dft_img %>% 
+  # filter(record_id %in% 'GENIE-DFCI-010669') %>%
+  # filter(record_id %in% 'GENIE-DFCI-038902') %>%
+  filter(record_id %in% "GENIE-MSK-P-0002303") %>%
+  select(record_id, matches('image_casite')) %>% 
+  pivot_longer(
+    cols = -record_id
+  ) %>%
+  filter(!is.na(value)) %>%
+  arrange(value) %>%
+  print(n = 500)
+
+# Checking:  Do we ever see codes marked "Distant (rare and nos)" in the data guide.
+dft_img %>% 
+  select(record_id, matches('image_casite')) %>% 
+  pivot_longer(
+    cols = -record_id
+  ) %>%
+  filter(!is.na(value)) %>%
+  count(value) %>%
+  arrange(value) %>%
+  print(n = 500)
+# Yes, we have 'C15.9 Esophagus NOS'!
+# Also 'C44.9 Skin NOS'!
+
 
 
 
