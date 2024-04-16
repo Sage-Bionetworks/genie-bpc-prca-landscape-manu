@@ -30,7 +30,7 @@ vec_relevant_panel <- dft_gp_all %>%
 # This is a more up-to-date version of the bed file, but it shouldn't matter
 #   because we expect the panel coverage to be stable over time.
 dft_bed <- readr::read_tsv(
-  here('data-raw', 'genomic', 'genie_combined_14_1.bed')
+  here('data-raw', 'genomic', 'genie_combined.bed')
 )
 dft_bed %<>% 
   filter(SEQ_ASSAY_ID %in% vec_relevant_panel)

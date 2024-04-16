@@ -10,6 +10,8 @@ synid_clin_data <- "syn50612196"
 synid_cbio_data <- "syn50697637"
 synid_assay_info <- 'syn22159815' # one-off, from main GENIE 12.1 public
 # genomic files to grab (panels are all grabbed based on file name):
+synid_bed_file <- 'syn9734427'
+synid_bed_file_version <- 108
 geno_files_included <- c(
   "data_mutations_extended.txt",
   "data_CNA.txt",
@@ -67,8 +69,9 @@ df_geno_children %<>%
   ) %>%
   filter(is_panel | is_included) 
 
-syn_store_in_dataraw_geno <- function(sid) {
-  synGet(entity = sid, downloadLocation = here("data-raw", "genomic"))
+syn_store_in_dataraw_geno <- function(sid, v = NULL) {
+  synGet(entity = sid, downloadLocation = here("data-raw", "genomic"),
+         version = v)
 }
 
 purrr::walk(.x = df_geno_children$id, 
@@ -77,6 +80,13 @@ purrr::walk(.x = df_geno_children$id,
 syn_store_in_dataraw_geno(
   synid_assay_info
 )
+
+# Insanely slow for some reason:
+syn_store_in_dataraw_geno(
+  synid_bed_file, v = synid_bed_file_version
+)
+
+  
 
 
 
