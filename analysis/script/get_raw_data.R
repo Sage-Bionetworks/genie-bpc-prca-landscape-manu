@@ -83,7 +83,7 @@ syn_store_in_dataraw_geno(
   synid_assay_info
 )
 
-# Insanely slow, maybe the versioned bed file is in cold storage? 
+# Insanely slow, maybe the versioned bed file is in colder storage? 
 syn_store_in_dataraw_geno(
   synid_bed_file, v = synid_bed_file_version
 )
