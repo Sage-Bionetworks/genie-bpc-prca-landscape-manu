@@ -69,11 +69,13 @@ df_geno_children %<>%
   ) %>%
   filter(is_panel | is_included) 
 
-syn_store_in_dataraw_geno <- function(sid, v = NULL) {
-  synGet(entity = sid, downloadLocation = here("data-raw", "genomic"),
-         version = v)
+syn_store_in_dataraw <- function(sid) {
+  synGet(
+    entity = sid, 
+    downloadLocation = here("data-raw"),
+    ifcollision = 'overwrite.local'
+  )
 }
-
 purrr::walk(.x = df_geno_children$id, 
             .f = syn_store_in_dataraw_geno)
 
@@ -81,7 +83,7 @@ syn_store_in_dataraw_geno(
   synid_assay_info
 )
 
-# Insanely slow for some reason:
+# Insanely slow, maybe the versioned bed file is in cold storage? 
 syn_store_in_dataraw_geno(
   synid_bed_file, v = synid_bed_file_version
 )
