@@ -543,7 +543,7 @@ gg_tmb_ecdf_panel <- plot_ecdf_by_panel(
   x_var = 'tmb_Mb',
   plot_title = "Tumor mutation burden sample distribution",
   x_lab = "TMB (mutations per megabase)"
-)
+)i
 
 
 ft_median_tmb <- dft_tmb %>%

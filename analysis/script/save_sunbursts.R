@@ -147,6 +147,36 @@ saveRDS(
 
 
 
+# Simple = Monotherapies only, no duplicates.
+dft_abi_enza_doce_simple <- dft_abi_enza_doce %>%
+  filter(regimen_drugs %in% c("Abiraterone Acetate", "Docetaxel", "Enzalutamide")) %>%
+  make_sunburst_input(
+    dat = .,
+    var = "regimen_drugs",
+    order_var = "regimen_number",
+    max_depth = NULL,
+    remove_dupes = T
+  )
+
+js_sun_aed_simple <- plot_regimen_sunburst(
+  dft_abi_enza_doce_simple,
+  seed = 1,
+  pal = c('#3B0F70', '#B63679', '#F76F5C')[c(3,1,2)]
+#   pal = c('#D76D5C', '#36136D', '#9D3976')
+)
+
+js_sun_aed_simple
+saveRDS(
+  file = here("data", "sunburst_plots", "abi_enza_doce_simple.rds"),
+  object = js_sun_aed_simple
+)
+
+
+
+
+
+
+
 
 # Update From May 8:  Create a plot similar to abi/enza/doce except with 
 #   Radium 223 and docetaxel.
@@ -180,6 +210,7 @@ saveRDS(
   file = here("data", "sunburst_plots", "radium_doce_no_dupes.rds"),
   object = js_sun_rad_doce_no_dupes
 )
+
 
 
 
