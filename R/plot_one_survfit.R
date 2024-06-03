@@ -7,10 +7,20 @@ plot_one_survfit <- function(
     plot_subtitle = NULL,
     x_title = "Years",
     risktable_prop = NULL,
-    x_exp = 0.15
+    x_exp = 0.15,
+    force_color = NULL
 ) {
-  gg <- survfit2(surv_form, data = dat) %>%
-    ggsurvfit() +
+  
+  gg <- survfit2(surv_form, data = dat) 
+  
+  # couldn't figure out how to do this without an if/else, sadly.
+  if (!is.null(force_color)) {
+    gg %<>% ggsurvfit(color = force_color)
+  } else {
+    gg %<>% ggsurvfit()
+  }
+    
+  gg <- gg + 
     add_risktable(
       risktable_stats = c(
         "n.risk",
@@ -46,6 +56,7 @@ plot_one_survfit <- function(
     theme(
       axis.title.y = element_blank(),
       plot.title.position = "plot",
+      title = element_markdown(),
       # prevents the axis tick label clipping:
       plot.margin=unit(c(.2,.2,.2,.2),"cm")
     )

@@ -72,6 +72,7 @@ readr::write_rds(
 
 # Create survival variables from met. 
 # In prostate cancer this is different from advanced disease.
+
 dft_surv_dmet <- left_join(
   dft_ca_ind,
   get_dmet_time(dft_ca_ind, annotate_type = T),
@@ -136,6 +137,59 @@ readr::write_rds(
 # Create a survival plot showing the effect of adjusting for truncation.
 # We will go from metastasis.
 
+pal_surv_dmet <- c('#507786', '#9C3812')
+# pal_surv_dmet <- c('#8ac7ad', '#b74233')
+
+dft_surv_dmet %<>% 
+  remove_trunc_gte_event(
+    trunc_var = 'dmet_cpt_rep_yrs',
+    event_var = 'tt_os_dmet_yrs'
+  )
+
+surv_obj_os_dmet_lt_adj <- with(
+  dft_surv_dmet,
+  Surv(
+    time = dmet_cpt_rep_yrs,
+    time2 = tt_os_dmet_yrs,
+    event = os_dx_status # While it says dx, death is the same no matter the index time.
+  )
+)
+
+surv_obj_os_dmet_no_lt_adj <- with(
+  dft_surv_dmet,
+  Surv(
+    time = tt_os_dmet_yrs,
+    event = os_dx_status # While it says dx, death is the same no matter the index time.
+  )
+)
+
+dft_surv_dmet_no_lt_adj <- survfit(
+  surv_obj_os_dmet_no_lt_adj ~ 1, data = dft_surv_dmet
+) %>%
+  broom::tidy(.) %>%
+  add_row(time = 0, estimate = 1)
+
+
+gg_os_dmet <- plot_one_survfit(
+  dat = dft_surv_dmet,
+  surv_form = surv_obj_os_dmet ~ 1,
+  plot_title = "OS from metastasis",
+  plot_subtitle = glue(
+    "<span style = 'color:{pal_surv_dmet[1]};'>Adjusted</span> and
+    <span style = 'color:{pal_surv_dmet[2]};'>Unadjusted</span> for left truncation (delayed entry)"),
+  x_exp = 0.1,
+  force_color = pal_surv_dmet[1]
+) + 
+  geom_step(data = dft_surv_dmet_no_lt_adj,
+            inherit.aes = F,
+            aes(x = time, y = estimate),
+            color = pal_surv_dmet[2])
+  
+
+readr::write_rds(
+  x = gg_os_dmet,
+  file = here(surv_desc_fp, 'os_dmet_by_adjustment.rds')
+)
 
   
 
