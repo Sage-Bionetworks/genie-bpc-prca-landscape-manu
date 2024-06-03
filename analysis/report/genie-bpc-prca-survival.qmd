@@ -56,7 +56,7 @@ The appendix defines (narrowly) a few survival terms.  Looking there may help cl
 ```{r}
 # now in a separate script.
 gg_os_dx_stage <- readr::read_rds(
-  here('data', 'survival', 'os_from_dx_by_stage.rds')
+  here('data', 'survival', 'os_dx_by_stage.rds')
 )
 ```
 
@@ -79,53 +79,26 @@ Notes:
 
 
 
+
+
 ```{r}
-
-dft_surv_met <- dft_ca_ind %>%
-  filter(!is.na(os_adv_status)) %>%
-  left_join(., dft_first_cpt, by = c("record_id", "ca_seq")) %>%
-  select(
-    record_id, ca_seq, dx_cpt_rep_yrs,
-    os_adv_status, tt_os_adv_yrs
-  )
-
-dft_met_timing <- make_dmet_status_block(ca_ind_dat = dft_ca_ind) %>%
-  filter(dmet_status %in% "Distant Metastasis") %>%
-  select(record_id, ca_seq, dx_met_yrs = dx_block_start)
-
-dft_surv_met <- left_join(dft_surv_met,
-                          dft_met_timing,
-                          by = c('record_id', 'ca_seq'))
-
-dft_surv_met %>%
-  remove_trunc_gte_event(
-    trunc_var = 'dx_cpt_rep_yrs',
-    event_var = 'tt_os_adv_yrs'
-  )
-
-surv_obj_os_dx <- with(
-  dft_surv_dx,
-  Surv(
-    time = dx_cpt_rep_yrs,
-    time2 = tt_os_dx_yrs,
-    event = os_dx_status
-  )
+# now in a separate script.
+gg_os_dmet_adj <- readr::read_rds(
+  here('data', 'survival', 'os_dmet_by_adjustment.rds')
 )
-
-gg_os_dx_stage <- plot_one_survfit(
-  dat = dft_surv_dx,
-  surv_form = surv_obj_os ~ stage_dx_iv,
-  plot_title = "OS from diagnosis",
-  plot_subtitle = "Adjusted for (independent) delayed entry"
-)
-
-
 ```
-
 
 ### R3.1.2 Survival from metastasis
 
-*Todo:* Show risk set adjustment impact in the metastatic cohort.
+Next we show survival from metastasis.  Metastasis is **not** identical to 'advanced disease' in the prostate cancer cohort because stage IV can be diagnosed with or without mets.  The strategy for identifying metastases in this cohort is spelled out in another report.  
+
+This is a good opportunity to show curves which are (recommended) and are not adjusted for left truncation.
+
+```{r}
+#| include: true
+
+gg_os_dmet_adj
+```
 
 ### R3.1.3 Testing truncation independence
 

@@ -60,7 +60,7 @@ gg_os_dx_stage <- plot_one_survfit(
 
 readr::write_rds(
   x = gg_os_dx_stage,
-  file = here(surv_desc_fp, 'os_from_dx_by_stage.rds')
+  file = here(surv_desc_fp, 'os_dx_by_stage.rds')
 )
 
 
@@ -137,7 +137,7 @@ readr::write_rds(
 # Create a survival plot showing the effect of adjusting for truncation.
 # We will go from metastasis.
 
-pal_surv_dmet <- c('#507786', '#9C3812')
+pal_surv_dmet <- c('#780C3B', '#c5812a')
 # pal_surv_dmet <- c('#8ac7ad', '#b74233')
 
 dft_surv_dmet %<>% 
