@@ -8,6 +8,8 @@ fs::dir_create(
   here('data', 'survival')
 )
 
+surv_desc_fp <- here('data', 'survival')
+
 read_wrap_clin <- function(p) {
   read_rds(file = here("data", 'clin', p))
 }
@@ -18,6 +20,9 @@ dft_ca_ind <- read_wrap_clin("dft_ca_ind.rds")
 dft_cpt <- read_wrap_clin("dft_cpt_aug.rds")
 
 
+
+
+# Create plot for survival from diagnosis stratified by stage at dx.
 dft_first_cpt <- get_first_cpt(
   ca_ind_dat = dft_ca_ind,
   cpt_dat = dft_cpt
@@ -55,5 +60,83 @@ gg_os_dx_stage <- plot_one_survfit(
 
 readr::write_rds(
   x = gg_os_dx_stage,
-  file = here('data', 'survival', 'os_from_dx_by_stage.rds')
+  file = here(surv_desc_fp, 'os_from_dx_by_stage.rds')
 )
+
+
+
+
+
+
+
+
+# Create survival variables from met. 
+# In prostate cancer this is different from advanced disease.
+dft_surv_dmet <- left_join(
+  dft_ca_ind,
+  get_dmet_time(dft_ca_ind, annotate_type = T),
+  by = c("record_id", "ca_seq")
+) %>%
+  filter(!is.na(dx_dmet_yrs)) # makes no sense otherwise.
+
+dft_surv_dmet %<>%
+  mutate(
+    tt_os_dmet_days = tt_os_dx_days - (dx_dmet_yrs * 365.25),
+    tt_os_dmet_mos = tt_os_dx_mos - (dx_dmet_yrs * 12.0148),
+    tt_os_dmet_yrs = tt_os_dx_yrs - (dx_dmet_yrs)
+  )
+
+# Difference mean plot
+ggplot(
+  dft_surv_dmet,
+  aes(
+    y = tt_os_adv_days - tt_os_dmet_days,
+    x = (tt_os_adv_days + tt_os_dmet_days) / 2,
+    color = .met_type
+  )
+) + 
+  geom_jitter(alpha = 0.5, width = 0, height = 100) + 
+  theme_bw() +
+  labs(
+    title = "Diff/mean for 'advanced' vs 'metatstatic'",
+    subtitle = "QA: Y ~= 0 for all but stage IV, dmet later"
+  )
+
+dft_surv_dmet %<>% select(-.met_type)
+
+dft_surv_dmet %<>%
+  left_join(., dft_first_cpt, by = c("record_id", "ca_seq")) %>%
+  mutate(
+    dmet_cpt_rep_yrs = dx_cpt_rep_yrs - dx_dmet_yrs
+  )
+
+## Heuristic:
+# dft_surv_dmet %>%
+#   arrange(desc(dmet_cpt_rep_yrs)) %>%
+#   slice(1:3) %>%
+#   select(record_id, contains("cpt"), dx_dmet_yrs, tt_os_dmet_yrs, os_dx_status) %>%
+#   View(.)
+
+readr::write_rds(
+  x = dft_surv_dmet,
+  file = here(surv_desc_fp, 'ca_ind_os_dmet.rds')
+)
+
+
+
+
+
+
+
+
+
+
+
+
+# Create a survival plot showing the effect of adjusting for truncation.
+# We will go from metastasis.
+
+
+  
+
+    
