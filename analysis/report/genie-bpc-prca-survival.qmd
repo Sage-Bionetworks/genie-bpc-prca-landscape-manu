@@ -54,43 +54,10 @@ The appendix defines (narrowly) a few survival terms.  Looking there may help cl
 ## Basics
 
 ```{r}
-
-dft_first_cpt <- get_first_cpt(
-  ca_ind_dat = dft_ca_ind,
-  cpt_dat = dft_cpt
+# now in a separate script.
+gg_os_dx_stage <- readr::read_rds(
+  here('data', 'survival', 'os_from_dx_by_stage.rds')
 )
-
-dft_surv_dx <- dft_ca_ind %>%
-  left_join(., dft_first_cpt, by = c("record_id", "ca_seq")) %>%
-  select(
-    record_id, ca_seq, stage_dx_iv, dx_cpt_rep_yrs,
-    os_dx_status, tt_os_dx_yrs
-  ) 
-
-dft_surv_dx %<>% 
-  remove_trunc_gte_event(
-    trunc_var = 'dx_cpt_rep_yrs',
-    event_var = 'tt_os_dx_yrs'
-  )
-
-surv_obj_os_dx <- with(
-  dft_surv_dx,
-  Surv(
-    time = dx_cpt_rep_yrs,
-    time2 = tt_os_dx_yrs,
-    event = os_dx_status
-  )
-)
-
-gg_os_dx_stage <- plot_one_survfit(
-  dat = dft_surv_dx,
-  surv_form = surv_obj_os_dx ~ stage_dx_iv,
-  plot_title = "OS from diagnosis",
-  plot_subtitle = "Adjusted for (independent) delayed entry",
-  x_exp = 0.1
-)
-
-
 ```
 
 
