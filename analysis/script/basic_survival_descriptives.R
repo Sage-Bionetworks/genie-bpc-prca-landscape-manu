@@ -163,7 +163,7 @@ surv_obj_os_dmet_no_lt_adj <- with(
   )
 )
 
-dft_surv_dmet_no_lt_adj <- survfit(
+dft_km_no_lt_adj <- survfit(
   surv_obj_os_dmet_no_lt_adj ~ 1, data = dft_surv_dmet
 ) %>%
   broom::tidy(.) %>%
@@ -180,7 +180,7 @@ gg_os_dmet <- plot_one_survfit(
   x_exp = 0.1,
   force_color = pal_surv_dmet[1]
 ) + 
-  geom_step(data = dft_surv_dmet_no_lt_adj,
+  geom_step(data = dft_km_no_lt_adj,
             inherit.aes = F,
             aes(x = time, y = estimate),
             color = pal_surv_dmet[2])
@@ -191,6 +191,63 @@ readr::write_rds(
   file = here(surv_desc_fp, 'os_dmet_by_adjustment.rds')
 )
 
+  
+
+
+
+
+# Test the independence of truncation and event times.
+# There's not much we can do with this information, but it's a curiousity that 
+#   someone may be interested in.
+
+res <- tranSurv::cKendall(
+  trun = dft_surv_dmet$dmet_cpt_rep_yrs,
+  obs = dft_surv_dmet$tt_os_dmet_yrs,
+  delta = dft_surv_dmet$os_dx_status,
+  method = "MB"
+) 
+
+# We'll just do all the tests and save them in case anyone asks.
+# Rediculous practice statistically but we also don't plan to do anything with this.
+dft_trunc_ind_test <- tribble(
+  ~lab, ~dat, ~v_trunc, ~v_event, ~v_event_ind,
+  "From diagnosis", dft_surv_dx, "dx_cpt_rep_yrs", "tt_os_dx_yrs", "os_dx_status",
+  "From metastasis (all)", dft_surv_dmet, "dmet_cpt_rep_yrs", "tt_os_dmet_yrs", "os_dx_status",
+  "From metastasis (dx Stage IV)", filter(dft_surv_dmet, stage_dx_iv %in% "Stage IV"), "dmet_cpt_rep_yrs", "tt_os_dmet_yrs", "os_dx_status",
+) %>%
+  slice(rep(1:n(), times = 3)) %>%
+  mutate(method = rep(c("MB", "IPW1", "IPW2"), each = n()/3))
+
+dft_trunc_ind_test %<>%
+  mutate(
+    res = purrr::pmap(
+      .l = list(
+        dat = dat, 
+        var_trunc = v_trunc, 
+        var_event_time = v_event,
+        var_event_ind = v_event_ind,
+        method = method
+      ),
+      .f = test_kendall_tau
+    )
+  ) %>%
+  select(lab, res) %>%
+  unnest(res)
+
+# IPW2 uses only the uncensored observations.  I don't really get why, so I'm confortable ignoring that it's different from the others.
+
+readr::write_rds(
+  x = dft_trunc_ind_test,
+  file = here('data', 'survival', 'trunc_test.rds')
+)
+
+
+# Just a curiousity:  Unconditional.
+# cor(
+#   dft_surv_dmet$tt_os_dmet_yrs,
+#   dft_surv_dmet$dmet_cpt_rep_yrs,
+#   method = "kendall"
+# )
   
 
     

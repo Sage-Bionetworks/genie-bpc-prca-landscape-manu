@@ -100,12 +100,44 @@ This is a good opportunity to show curves which are (recommended) and are not ad
 gg_os_dmet_adj
 ```
 
+
+
+
+
+```{r}
+dft_trunc_test <- readr::read_rds(
+  here('data', 'survival', 'trunc_test.rds')
+)
+```
+
+
 ### R3.1.3 Testing truncation independence
 
-*Todo:* Test the assumption of independent truncation (Kendall Tau statistic) in: 
+The following table shows values for the conditional Kendall Tau statistic.  Kendall tau is a measurement of the rank (nonparametric) association between the time of truncation (delayed entry due to NGS being required to join GENIE cohort) and death.  The conditional version takes censoring into account, where pairs of observations have to meet certain conditions to be included.  A negative test statistic would indicate that longer times to NGS are associated with shorter survival times than would be expected if the two variables were independent.  A positive test statistic would indicate the opposite.
 
-- Whole cohort
-- Metastatic cohort
+We repeat this several times for different cohorts.  When we index from metastasis, the difference in indexing time is not important but it *is* important that this only includes participants which had a metastasis at some point.  
+
+```{r}
+#| include: true
+
+dft_trunc_test %>%
+  filter(method %in% "MB") %>%
+  mutate(
+    ci_low = estimate - std.error * qnorm(0.975),
+    ci_high = estimate + std.error * qnorm(0.975),
+    `Cond. Kendall Tau` = cfmisc::est_int_str(estimate, ci_low, ci_high),
+    p.value = cfmisc::pval_nejm(p.value)) %>%
+  select(` ` = lab, `Cond. Kendall Tau`, p.value) %>%
+  flextable(.) %>%
+  autofit(.)
+```
+
+**Notes:** 
+
+- We apply the method of Martin and Betensky (https://doi.org/10.1198/016214504000001538), which should be sufficient for testing the null.  The $\hat{\tau}_{c_2}$ IPW method from https://doi.org/10.1016%2Fj.csda.2013.11.018 was generally similar.
+- It's notable that even for those who are stage IV at diagnosis we seem to have a major dependence, which makes this cohort somewhat unique compared to those analyzed in https://doi.org/10.1001%2Fjamaoncol.2021.5153.
+  - Obvious differences:  Prostate cancer has longer survival times, and Stage IV prostate cancer generally seems to denote a much lower hazard of death than some others.
+  - One hypothesized sequence of events contributing to the negative association between truncation and survival is a worsening cancer which would prompt both testing and increased risk of death.  If this is more true in prostate cancer which is stage IV than other cancers, it could explain the test result we're seeing.  For example, maybe people are tested for pembro eligibility frequently when a sign of worsening is observed.  Clinical thoughts on hypotheses are surely more valuable than mine.
 
 
 
