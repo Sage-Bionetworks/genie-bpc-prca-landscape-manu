@@ -53,6 +53,9 @@ rmarkdown::render(
 #   output_format = 'html',
 #   output_file = '03-genie-bpc-prostate-survival.html',
 # )
+
+source(here('analysis', 'script', 'basic_survival_descriptives.R'))
+source(here('analysis', 'script', 'create_surv_hrd_dataset.R'))
 fs::file_move(
   path = here('analysis', 'report', 'genie-bpc-prca-survival.html'),
   new_path = here('output', '03-genie-bpc-prostate-survival.html')
