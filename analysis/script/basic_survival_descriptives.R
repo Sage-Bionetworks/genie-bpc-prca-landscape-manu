@@ -172,7 +172,7 @@ dft_km_no_lt_adj <- survfit(
 
 gg_os_dmet <- plot_one_survfit(
   dat = dft_surv_dmet,
-  surv_form = surv_obj_os_dmet ~ 1,
+  surv_form = surv_obj_os_dmet_lt_adj ~ 1,
   plot_title = "OS from metastasis",
   plot_subtitle = glue(
     "<span style = 'color:{pal_surv_dmet[1]};'>Adjusted</span> and
@@ -199,13 +199,6 @@ readr::write_rds(
 # Test the independence of truncation and event times.
 # There's not much we can do with this information, but it's a curiousity that 
 #   someone may be interested in.
-
-res <- tranSurv::cKendall(
-  trun = dft_surv_dmet$dmet_cpt_rep_yrs,
-  obs = dft_surv_dmet$tt_os_dmet_yrs,
-  delta = dft_surv_dmet$os_dx_status,
-  method = "MB"
-) 
 
 # We'll just do all the tests and save them in case anyone asks.
 # Rediculous practice statistically but we also don't plan to do anything with this.
