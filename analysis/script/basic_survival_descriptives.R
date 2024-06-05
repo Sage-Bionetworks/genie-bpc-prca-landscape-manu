@@ -206,7 +206,7 @@ dft_trunc_ind_test <- tribble(
   ~lab, ~dat, ~v_trunc, ~v_event, ~v_event_ind,
   "From diagnosis", dft_surv_dx, "dx_cpt_rep_yrs", "tt_os_dx_yrs", "os_dx_status",
   "From metastasis (all)", dft_surv_dmet, "dmet_cpt_rep_yrs", "tt_os_dmet_yrs", "os_dx_status",
-  "From metastasis (dx Stage IV)", filter(dft_surv_dmet, stage_dx_iv %in% "Stage IV"), "dmet_cpt_rep_yrs", "tt_os_dmet_yrs", "os_dx_status",
+  "From metastasis (metastatic at dx)", filter(dft_surv_dmet, stage_dx_iv %in% "Stage IV" & ca_dmets_yn %in% "Yes"), "dmet_cpt_rep_yrs", "tt_os_dmet_yrs", "os_dx_status",
 ) %>%
   slice(rep(1:n(), times = 3)) %>%
   mutate(method = rep(c("MB", "IPW1", "IPW2"), each = n()/3))
