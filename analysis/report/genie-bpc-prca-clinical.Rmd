@@ -91,6 +91,9 @@ if (any(dft_pt$naaccr_sex_code != "Male")) {
 ```
 
 
+
+
+
 ```{r, demo_data_manipulation, include = F}
 dft_pt_baseline_sub <- dft_pt %>%
   mutate(

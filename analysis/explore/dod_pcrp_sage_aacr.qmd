@@ -39,6 +39,7 @@ dft_pt <- read_wrap_clin("dft_pt.rds")
 dft_ca_ind <- read_wrap_clin("dft_ca_ind.rds")
 # we're taking the augmented version, which has TMB columns added.  The existing info is the same.
 dft_cpt <- read_wrap_clin("dft_cpt_aug.rds")
+dft_tm <- read_wrap_clin("dft_tm.rds")
 ```
 
 ## Introduction
@@ -112,3 +113,95 @@ dft_gp_all %>%
     
 ```
 
+
+```{r}
+dft_psa_first <- dft_tm %>%
+  filter(tm_type %in% "PSA") %>%
+  psa_test_unit_convert() %>%
+  filter(!is.na(tm_num_result_conv))
+
+dft_psa_first %<>%
+  group_by(record_id) %>%
+  arrange(abs(dx_tm_days)) %>%
+  slice(1) %>%
+  ungroup(.)
+
+```
+
+**PSA (closest to dx)**
+
+For this we're taking the PSA value closest to diagnosis (before or after), which will increase the number of non-missing values compared to insisting on a baseline value. 
+
+The number of **MISSING** PSA values is:
+ 
+```{r}
+nrow(dft_ca_ind) - nrow(dft_psa_first)
+```
+
+
+The median, first quartile, third quartile summary for PSA nearest dx is:
+
+```{r}
+quantile(
+  dft_psa_first$tm_num_result_conv,
+  probs = c(0.5, 0.25, 0.75)
+)
+```
+
+The timing of those PSA observations (median, Q1, Q3) in years is:
+
+```{r}
+quantile(
+  dft_psa_first$dx_tm_yrs,
+  probs = c(0.5, 0.25, 0.75)
+)
+```
+
+So quite a bit after diagnosis of prostate cancer in some cases (which I find interesting since the tumor marker dataset should contain all serum markers).
+
+
+```{r}
+dft_psa_max <- dft_tm %>%
+  filter(tm_type %in% "PSA") %>%
+  psa_test_unit_convert() %>%
+  filter(!is.na(tm_num_result_conv))
+
+dft_psa_max %<>%
+  group_by(record_id) %>%
+  arrange(desc(tm_num_result_conv)) %>%
+  slice(1) %>%
+  ungroup(.)
+
+```
+
+
+**PSA (max)**
+
+Also doing a maximum for each person
+
+The number of **MISSING** PSA values is:
+ 
+```{r}
+nrow(dft_ca_ind) - nrow(dft_psa_max)
+```
+
+
+The median, first quartile, third quartile summary for PSA nearest dx is:
+
+```{r}
+quantile(
+  dft_psa_max$tm_num_result_conv,
+  probs = c(0.5, 0.25, 0.75)
+)
+```
+
+The timing of those PSA observations (median, Q1, Q3) in years is:
+
+```{r}
+quantile(
+  dft_psa_max$dx_tm_yrs,
+  probs = c(0.5, 0.25, 0.75)
+)
+```
+
+So quite a bit after diagnosis of prostate cancer in some cases (which I find interesting since the tumor marker dataset should contain all serum markers).
