@@ -24,12 +24,23 @@ met_cast_blocks %>% count(record_id) %>% nrow(.) # number metastatic - one off, 
 
 met_cast_blocks %>% count(md_cast_status_f)
 
+# What if we limit the minimum block size to 30 days?
+met_cast_blocks %<>% 
+  mutate(block_length = dx_block_end - pmax(dx_block_start, dx_dmet_yrs)) 
+met_cast_blocks %>%
+  filter(block_length > 30/365.25) %>%
+  count(md_cast_status_f)
+# Fairly durable.
+
 # Just checking:
 met_cast_blocks %>% 
   filter(md_cast_status_f %in% "Castrate-Resistant") %>%
   select(contains("dx_block"), "dx_dmet_yrs") %>% 
-           View(.)
+  View(.)
 
-n_prca_crpc <- dft_cast_block %>% 
-  filter(md_cast_status_f %in% "Castrate-Resistant") %>%
-  nrow
+# How many people have both type of blocks we're interested in?
+met_cast_blocks %>%
+  filter(md_cast_status_f %in% c("Castrate-Resistant", "Hormone Sensitive")) %>%
+  count(record_id) %>%
+  filter(n %in% 2) %>%
+  nrow(.)
