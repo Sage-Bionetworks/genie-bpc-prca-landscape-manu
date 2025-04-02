@@ -83,9 +83,3 @@ fs::file_move(
 
 
 
-
-##########
-# Output #
-##########
-
-source(here('analysis', 'script', 'upload_outputs_synapse.R'))

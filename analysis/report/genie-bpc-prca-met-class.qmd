@@ -1,6 +1,5 @@
 ---
 title: "BPC Prostate - Metastatic classification"
-subtitle: "(A temporary report)"
 author: "Alex Paynter"
 date: "`r Sys.Date()`"
 output:
